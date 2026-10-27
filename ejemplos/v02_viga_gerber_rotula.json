@@ -1,0 +1,50 @@
+{
+  "titulo": "v0.2 – Viga Gerber con rótula interna",
+  "nudos": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "apoyo": "empotrado"
+    },
+    {
+      "id": 2,
+      "x": 4,
+      "y": 0,
+      "apoyo": "libre"
+    },
+    {
+      "id": 3,
+      "x": 8,
+      "y": 0,
+      "apoyo": "rodillo (fija Y)"
+    }
+  ],
+  "barras": [
+    {
+      "id": 1,
+      "i": 1,
+      "j": 2,
+      "EI": 2000,
+      "EA": 100000000.0
+    },
+    {
+      "id": 2,
+      "i": 2,
+      "j": 3,
+      "EI": 2000,
+      "EA": 100000000.0,
+      "rot_i": true
+    }
+  ],
+  "cargas_nudo": [],
+  "cargas_repartidas": [
+    {
+      "barra": 2,
+      "w": -2,
+      "direccion": "global Y"
+    }
+  ],
+  "cargas_puntuales": [],
+  "ea_infinito": true
+}

@@ -1,0 +1,23 @@
+{
+  "titulo": "Aplicación 2 – Pórtico Q-D con barra inclinada",
+  "nudos": [
+    {"id": 1, "x": 0, "y": 0, "apoyo": "empotrado"},
+    {"id": 2, "x": 3, "y": 4, "apoyo": "libre"},
+    {"id": 3, "x": 8, "y": 4, "apoyo": "libre"},
+    {"id": 4, "x": 8, "y": 0, "apoyo": "empotrado"}
+  ],
+  "barras": [
+    {"id": 1, "i": 1, "j": 2, "EI": 3000, "EA": 100000000},
+    {"id": 2, "i": 2, "j": 3, "EI": 3000, "EA": 100000000},
+    {"id": 3, "i": 3, "j": 4, "EI": 3000, "EA": 100000000}
+  ],
+  "cargas_nudo": [],
+  "cargas_repartidas": [
+    {"barra": 1, "w": -10, "direccion": "perpendicular (y local)"}
+  ],
+  "cargas_puntuales": [
+    {"barra": 2, "P": -40, "a": 2.5, "direccion": "global Y"},
+    {"barra": 3, "P": 10, "a": 2.0, "direccion": "global X"}
+  ],
+  "ea_infinito": true
+}

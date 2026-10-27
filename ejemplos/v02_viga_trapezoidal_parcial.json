@@ -1,0 +1,57 @@
+{
+  "titulo": "v0.2 – Viga continua con carga trapezoidal y parcial",
+  "nudos": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "apoyo": "articulado"
+    },
+    {
+      "id": 2,
+      "x": 6,
+      "y": 0,
+      "apoyo": "rodillo (fija Y)"
+    },
+    {
+      "id": 3,
+      "x": 11,
+      "y": 0,
+      "apoyo": "rodillo (fija Y)"
+    }
+  ],
+  "barras": [
+    {
+      "id": 1,
+      "i": 1,
+      "j": 2,
+      "EI": 3000,
+      "EA": 100000000.0
+    },
+    {
+      "id": 2,
+      "i": 2,
+      "j": 3,
+      "EI": 3000,
+      "EA": 100000000.0
+    }
+  ],
+  "cargas_nudo": [],
+  "cargas_repartidas": [
+    {
+      "barra": 1,
+      "w": -2,
+      "w2": -5,
+      "direccion": "global Y"
+    },
+    {
+      "barra": 2,
+      "w": -4,
+      "direccion": "global Y",
+      "a": 1.0,
+      "b": 3.5
+    }
+  ],
+  "cargas_puntuales": [],
+  "ea_infinito": true
+}

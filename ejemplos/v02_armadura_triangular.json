@@ -1,0 +1,117 @@
+{
+  "titulo": "v0.2 – Armadura (barras con rótula en i y j, EA finito)",
+  "nudos": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "apoyo": "articulado"
+    },
+    {
+      "id": 2,
+      "x": 4,
+      "y": 0,
+      "apoyo": "libre"
+    },
+    {
+      "id": 3,
+      "x": 8,
+      "y": 0,
+      "apoyo": "rodillo (fija Y)"
+    },
+    {
+      "id": 4,
+      "x": 2,
+      "y": 3,
+      "apoyo": "libre"
+    },
+    {
+      "id": 5,
+      "x": 6,
+      "y": 3,
+      "apoyo": "libre"
+    }
+  ],
+  "barras": [
+    {
+      "id": 1,
+      "i": 1,
+      "j": 2,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    },
+    {
+      "id": 2,
+      "i": 2,
+      "j": 3,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    },
+    {
+      "id": 3,
+      "i": 1,
+      "j": 4,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    },
+    {
+      "id": 4,
+      "i": 4,
+      "j": 2,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    },
+    {
+      "id": 5,
+      "i": 2,
+      "j": 5,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    },
+    {
+      "id": 6,
+      "i": 5,
+      "j": 3,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    },
+    {
+      "id": 7,
+      "i": 4,
+      "j": 5,
+      "EI": 100,
+      "EA": 200000.0,
+      "rot_i": true,
+      "rot_j": true
+    }
+  ],
+  "cargas_nudo": [
+    {
+      "nudo": 4,
+      "Fx": 5,
+      "Fy": -10,
+      "M": 0
+    },
+    {
+      "nudo": 5,
+      "Fx": 0,
+      "Fy": -10,
+      "M": 0
+    }
+  ],
+  "cargas_repartidas": [],
+  "cargas_puntuales": [],
+  "ea_infinito": false
+}

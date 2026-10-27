@@ -1,0 +1,56 @@
+{
+  "titulo": "Viga continua de 2 tramos",
+  "nudos": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "apoyo": "articulado"
+    },
+    {
+      "id": 2,
+      "x": 5,
+      "y": 0,
+      "apoyo": "rodillo (fija Y)"
+    },
+    {
+      "id": 3,
+      "x": 11,
+      "y": 0,
+      "apoyo": "rodillo (fija Y)"
+    }
+  ],
+  "barras": [
+    {
+      "id": 1,
+      "i": 1,
+      "j": 2,
+      "EI": 3000,
+      "EA": 100000000.0
+    },
+    {
+      "id": 2,
+      "i": 2,
+      "j": 3,
+      "EI": 3000,
+      "EA": 100000000.0
+    }
+  ],
+  "cargas_nudo": [],
+  "cargas_repartidas": [
+    {
+      "barra": 1,
+      "w": -2,
+      "direccion": "global Y"
+    }
+  ],
+  "cargas_puntuales": [
+    {
+      "barra": 2,
+      "P": -8,
+      "a": 3,
+      "direccion": "global Y"
+    }
+  ],
+  "ea_infinito": true
+}

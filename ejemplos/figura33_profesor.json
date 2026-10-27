@@ -1,0 +1,139 @@
+{
+  "titulo": "Figura N° 33 – numeración del profesor (EI = 4000)",
+  "nudos": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "apoyo": "empotrado"
+    },
+    {
+      "id": 2,
+      "x": 5,
+      "y": 0,
+      "apoyo": "empotrado"
+    },
+    {
+      "id": 3,
+      "x": 10,
+      "y": 0,
+      "apoyo": "empotrado"
+    },
+    {
+      "id": 4,
+      "x": 0,
+      "y": 5,
+      "apoyo": "libre"
+    },
+    {
+      "id": 5,
+      "x": 5,
+      "y": 5,
+      "apoyo": "libre"
+    },
+    {
+      "id": 6,
+      "x": 10,
+      "y": 5,
+      "apoyo": "libre"
+    }
+  ],
+  "barras": [
+    {
+      "id": 1,
+      "i": 1,
+      "j": 4,
+      "EI": 4000,
+      "EA": 100000000,
+      "rot_i": false,
+      "rot_j": false,
+      "bi": 0.0,
+      "bj": 0.0
+    },
+    {
+      "id": 2,
+      "i": 2,
+      "j": 5,
+      "EI": 4000,
+      "EA": 100000000,
+      "rot_i": false,
+      "rot_j": false,
+      "bi": 0.0,
+      "bj": 0.0
+    },
+    {
+      "id": 3,
+      "i": 3,
+      "j": 6,
+      "EI": 4000,
+      "EA": 100000000,
+      "rot_i": false,
+      "rot_j": false,
+      "bi": 0.0,
+      "bj": 0.0
+    },
+    {
+      "id": 4,
+      "i": 4,
+      "j": 5,
+      "EI": 4000,
+      "EA": 100000000,
+      "rot_i": false,
+      "rot_j": false,
+      "bi": 0.0,
+      "bj": 0.0
+    },
+    {
+      "id": 5,
+      "i": 5,
+      "j": 6,
+      "EI": 4000,
+      "EA": 100000000,
+      "rot_i": false,
+      "rot_j": false,
+      "bi": 0.0,
+      "bj": 0.0
+    }
+  ],
+  "cargas_nudo": [
+    {
+      "nudo": 4,
+      "Fx": 10,
+      "Fy": 0,
+      "M": 0
+    }
+  ],
+  "cargas_repartidas": [
+    {
+      "barra": 4,
+      "w": -2,
+      "direccion": "global Y",
+      "w2": null,
+      "a": 0.0,
+      "b": null
+    },
+    {
+      "barra": 5,
+      "w": -2,
+      "direccion": "global Y",
+      "w2": null,
+      "a": 0.0,
+      "b": null
+    }
+  ],
+  "cargas_puntuales": [
+    {
+      "barra": 4,
+      "P": -3,
+      "a": 2.5,
+      "direccion": "global Y"
+    },
+    {
+      "barra": 5,
+      "P": -4,
+      "a": 4.0,
+      "direccion": "global Y"
+    }
+  ],
+  "ea_infinito": true
+}

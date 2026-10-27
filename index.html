@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pórtico 2D · Pyodide Web</title>
+  
+  <!-- Tipografía Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+  <!-- Carga Pyodide desde CDN -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-icon">P2</div>
+        <div>
+          <h1>Pórtico 2D <span class="badge-tag">Pyodide Web</span></h1>
+          <p>Método de Rigidez Sistematizado · Fase 1 (Hito 1)</p>
+        </div>
+      </div>
+      <div class="status-indicator">
+        <div id="status-dot" class="status-dot loading"></div>
+        <span id="status-text">Iniciando entorno WebAssembly...</span>
+      </div>
+    </header>
+
+    <section class="control-panel">
+      <div class="control-row">
+        <div class="control-group">
+          <label class="control-label" for="sel-ejemplo">Modelo / Ejemplo:</label>
+          <select id="sel-ejemplo">
+            <option value="aplicacion2_portico_QD.json" selected>Aplicación 2 – Pórtico Q-D con barra inclinada</option>
+            <option value="figura33_profesor.json">Figura 33 (Solución del profesor, EI=4000)</option>
+            <option value="figura33_portico_dos_vanos.json">Figura 33 (Pórtico dos vanos, EI=1)</option>
+            <option value="portico_simple.json">Pórtico simple</option>
+            <option value="viga_continua.json">Viga continua</option>
+            <option value="v02_viga_gerber_rotula.json">Viga Gerber con rótula</option>
+            <option value="v02_armadura_triangular.json">Armadura triangular</option>
+            <option value="v02_portico_brazos_rigidos.json">Pórtico con brazos rígidos</option>
+            <option value="v02_viga_trapezoidal_parcial.json">Viga con carga trapezoidal y parcial</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <button id="btn-resolver" class="btn-primary" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span>Resolver Modelo</span>
+          </button>
+          <span id="tiempo-calc" class="mono-num" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+        </div>
+      </div>
+    </section>
+
+    <main class="results-grid" id="seccion-resultados" style="display: none;">
+      <!-- Tarjeta: Desplazamientos Globales {D} -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>Desplazamientos Globales {D}</span>
+            <span class="tag">m, rad</span>
+          </h2>
+        </div>
+        <div id="vector-D" class="vector-list"></div>
+      </div>
+
+      <!-- Tarjeta: Fuerzas Internas {q} por barra -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>Fuerzas en Extremos {q}</span>
+            <span class="tag">[Vi, Mi, Vj, Mj]</span>
+          </h2>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="tabla-q">
+            <thead>
+              <tr>
+                <th>Barra</th>
+                <th>V_i (t)</th>
+                <th>M_i (t·m)</th>
+                <th>V_j (t)</th>
+                <th>M_j (t·m)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tarjeta: Reacciones en Apoyos -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>Reacciones en Apoyos</span>
+            <span class="tag">Global X, Y, Giro</span>
+          </h2>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="tabla-reacciones">
+            <thead>
+              <tr>
+                <th>Nudo</th>
+                <th>Rx (t)</th>
+                <th>Ry (t)</th>
+                <th>Mz (t·m)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tarjeta: Matriz [K] y Vector {R} -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>Matriz [K] y Cargas de Fijación {R}</span>
+            <span class="tag">GDL globales</span>
+          </h2>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          <strong>Vector {R}:</strong> <span id="vector-R" class="mono-num"></span>
+        </div>
+        <div class="matrix-container" id="matriz-K"></div>
+      </div>
+
+      <!-- Tarjeta: Inspección JSON Completo -->
+      <div class="card full-width">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>Salida Completa del Solver (JSON)</span>
+            <span class="tag">Verificación</span>
+          </h2>
+        </div>
+        <pre class="code-viewer" id="json-salida">Esperando cálculo...</pre>
+      </div>
+    </main>
+
+    <footer>
+      Pórtico 2D · Análisis Estructural 2 (UNSA 2026-B) · Ejecución nativa WebAssembly vía Pyodide
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
