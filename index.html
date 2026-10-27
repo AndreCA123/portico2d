@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Pórtico 2D · Móvil & Web</title>
   
   <!-- Tipografía Google Fonts -->
@@ -16,12 +16,18 @@
 </head>
 <body>
   <div class="container">
+    <!-- Encabezado exclusivo para vista de impresión / PDF -->
+    <div class="print-header">
+      <h1>Pórtico 2D · Informe de Cálculo Estructural</h1>
+      <p id="print-meta">Análisis Estructural 2 · Método de Rigidez Sistematizado</p>
+    </div>
+
     <header>
       <div class="brand">
         <div class="brand-icon">P2</div>
         <div>
-          <h1>Pórtico 2D <span class="badge-tag">Hito 2</span></h1>
-          <p>Método de Rigidez · Móvil y WebAssembly</p>
+          <h1>Pórtico 2D <span class="badge-tag">Hitos 3 & 4</span></h1>
+          <p>Método de Rigidez · Pasos 1–14 y Diagramas</p>
         </div>
       </div>
       <div class="status-indicator">
@@ -30,9 +36,9 @@
       </div>
     </header>
 
-    <!-- Barra superior: Título, EA=inf, Abrir/Guardar y Ejemplos -->
+    <!-- Barra superior: Título, EA=inf, Abrir/Guardar, Exportar PDF y Ejemplos -->
     <section class="top-toolbar">
-      <div class="toolbar-group" style="flex: 1; min-width: 260px;">
+      <div class="toolbar-group" style="flex: 1; min-width: 240px;">
         <input type="text" id="modelo-titulo" class="input-titulo" placeholder="Título del modelo" title="Nombre o descripción del pórtico">
         <label class="ea-toggle" title="Las barras no cambian de longitud (método del curso)">
           <input type="checkbox" id="modelo-ea-inf" checked>
@@ -54,11 +60,14 @@
         </select>
         
         <input type="file" id="input-archivo" accept=".json" style="display: none;">
-        <button id="btn-abrir-json" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;">
+        <button id="btn-abrir-json" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;" title="Abrir archivo .json">
           📂 Abrir
         </button>
-        <button id="btn-guardar-json" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;">
+        <button id="btn-guardar-json" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;" title="Guardar archivo .json">
           💾 Guardar
+        </button>
+        <button id="btn-exportar-pdf" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;" title="Vista de impresión / Guardar como PDF">
+          📄 Exportar PDF
         </button>
       </div>
     </section>
@@ -79,6 +88,12 @@
       </button>
       <button class="tab-btn" data-tab="tab-resultados" role="tab">
         <span>📊 Resultados</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-diagramas" role="tab">
+        <span>📈 Diagramas</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-pasos" role="tab">
+        <span>📑 Pasos (1–14)</span>
       </button>
     </nav>
 
@@ -309,6 +324,39 @@
       </div>
     </section>
 
+    <!-- Pestaña 5: DIAGRAMAS (Hito 4) -->
+    <section id="tab-diagramas" class="tab-content">
+      <div class="card" style="padding: 0.75rem;">
+        <!-- Selector de diagrama -->
+        <div class="selector-diagrama-bar">
+          <button class="diag-btn active" data-diag="modelo">🏗️ Modelo</button>
+          <button class="diag-btn" data-diag="def">〰️ Deformada</button>
+          <button class="diag-btn" data-diag="DMF">▰ DMF (Momento)</button>
+          <button class="diag-btn" data-diag="DFC">▰ DFC (Cortante)</button>
+          <button class="diag-btn" data-diag="DFN">▰ DFN (Axial)</button>
+          <button class="diag-btn" data-diag="reacciones">⚓ Reacciones</button>
+        </div>
+
+        <!-- Contenedor del diagrama con soporte zoom con dos dedos -->
+        <div class="diagrama-wrapper" id="diagrama-wrapper">
+          <div class="diagrama-toolbar">
+            <button id="btn-zoom-in" title="Acercar">+</button>
+            <button id="btn-zoom-out" title="Alejar">−</button>
+            <button id="btn-zoom-reset" title="Restablecer">↺</button>
+          </div>
+          <svg id="diagrama-svg" class="diagrama-svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="diagrama-info-badge" id="diagrama-info">Zoom: dos dedos / rueda de ratón</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pestaña 6: PASOS DEL MÉTODO (1–14) (Hito 3) -->
+    <section id="tab-pasos" class="tab-content">
+      <div class="pasos-container" id="pasos-contenedor">
+        <p style="color: var(--text-muted);">Calcula el modelo para generar los 14 pasos con las matrices del curso.</p>
+      </div>
+    </section>
+
     <!-- Barra fija inferior de acciones (móvil) -->
     <div class="mobile-action-bar">
       <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -323,7 +371,7 @@
     </div>
 
     <footer>
-      Pórtico 2D · UNSA 2026-B · Fase 1 (Hito 2: Edición móvil + Resultados)
+      Pórtico 2D · UNSA 2026-B · Fase 1 (Hitos 1–4: Entrada, Resultados, Diagramas y Pasos)
     </footer>
   </div>
 

@@ -1,9 +1,10 @@
 // ==============================================================================
-// Pórtico 2D Web · Hito 2: Edición Móvil (Nudos/Barras/Cargas) + Pyodide
-// 100% compatible con los archivos .json de PC (Modelo.a_dict / de_dict)
+// Pórtico 2D Web · Hitos 1 a 4: Entrada Móvil, Pyodide, Diagramas y Pasos 1–14
 // ==============================================================================
 
 let pyodide = null;
+let ultimoResultado = null;
+let diagramaActual = "modelo";
 
 const APOYOS = [
   "libre",
@@ -65,6 +66,7 @@ const modeloEaInfInput = document.getElementById('modelo-ea-inf');
 const inputArchivo = document.getElementById('input-archivo');
 const btnAbrirJson = document.getElementById('btn-abrir-json');
 const btnGuardarJson = document.getElementById('btn-guardar-json');
+const btnExportarPdf = document.getElementById('btn-exportar-pdf');
 
 const badgeNudos = document.getElementById('badge-nudos');
 const badgeBarras = document.getElementById('badge-barras');
@@ -84,25 +86,34 @@ const tablaUNudosBody = document.querySelector('#tabla-u-nudos tbody');
 const elVectorR = document.getElementById('vector-R');
 const elMatrizK = document.getElementById('matriz-K');
 
+const pasosContenedor = document.getElementById('pasos-contenedor');
+const diagramaSvg = document.getElementById('diagrama-svg');
+const diagramaWrapper = document.getElementById('diagrama-wrapper');
+const diagramaInfo = document.getElementById('diagrama-info');
+
 function setStatus(tipo, texto) {
   statusDot.className = `status-dot ${tipo}`;
   statusText.textContent = texto;
 }
 
 // ----------------------------------------------------------- Pestañas Móviles
-document.querySelectorAll('.tab-btn').forEach(btn => {
+document.querySelectorAll('.nav-tabs .tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
     btn.classList.add('active');
     const tabId = btn.getAttribute('data-tab');
     document.getElementById(tabId).classList.add('active');
+
+    if (tabId === 'tab-diagramas' && ultimoResultado) {
+      actualizarDiagrama();
+    }
   });
 });
 
 function activarPestanaResultados() {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   const btn = document.querySelector('.tab-btn[data-tab="tab-resultados"]');
   if (btn) btn.classList.add('active');
@@ -129,7 +140,7 @@ async function inicializarPyodide() {
       pyodide.FS.mkdirTree('/home/pyodide/portico2d');
     } catch (e) {}
 
-    const modulos = ['__init__.py', 'modelo.py', 'solver.py', 'informe.py'];
+    const modulos = ['__init__.py', 'modelo.py', 'solver.py', 'informe.py', 'dibujo.py'];
     for (const mod of modulos) {
       const resp = await fetch(`py/portico2d/${mod}`);
       if (!resp.ok) throw new Error(`Error al cargar ${mod} (HTTP ${resp.status})`);
@@ -147,13 +158,43 @@ if '/home/pyodide' not in sys.path:
 import json
 import numpy as np
 from portico2d.modelo import Modelo
-from portico2d.solver import analizar
+from portico2d.solver import analizar, esfuerzos
+from portico2d.informe import html_pasos
 
 def resolver_modelo_json(json_str):
     datos = json.loads(json_str)
     modelo = Modelo.de_dict(datos)
     res = analizar(modelo)
     
+    # 1. Pasos 1–14 de informe.py
+    try:
+        pasos_html = html_pasos(res)
+    except Exception as e:
+        pasos_html = f"<p style='color:red;'>Error al generar pasos: {e}</p>"
+
+    # 2. Datos de diagramas desde esfuerzos()
+    barras_diag = []
+    for rb in res.barras:
+        xs, N, V, M, v, u = esfuerzos(rb, npts=101)
+        barras_diag.append({
+            "id": int(rb.id),
+            "i": int(rb.i),
+            "j": int(rb.j),
+            "xi": float(rb.geo.xi),
+            "yi": float(rb.geo.yi),
+            "L": float(rb.geo.L),
+            "c": float(rb.geo.c),
+            "s": float(rb.geo.s),
+            "bi": float(rb.bi),
+            "bj": float(rb.bj),
+            "xs": xs.tolist(),
+            "N": N.tolist(),
+            "V": V.tolist(),
+            "M": M.tolist(),
+            "v": v.tolist(),
+            "u": u.tolist(),
+        })
+
     salida = {
         "titulo": modelo.titulo,
         "ea_infinito": bool(modelo.ea_infinito),
@@ -173,7 +214,9 @@ def resolver_modelo_json(json_str):
         ],
         "q": {str(b.id): b.q.tolist() for b in res.barras},
         "reacciones": {str(k): list(v) for k, v in res.reacciones.items()},
-        "u_nudos": {str(k): list(v) for k, v in res.u_nudos.items()}
+        "u_nudos": {str(k): list(v) for k, v in res.u_nudos.items()},
+        "html_pasos": pasos_html,
+        "diagramas_barras": barras_diag
     }
     return json.dumps(salida)
 `);
@@ -250,7 +293,6 @@ function cargarModelo(obj, autoCalcular = true) {
     }))
   };
 
-  // Sincronizar UI
   modeloTituloInput.value = modeloActual.titulo;
   modeloEaInfInput.checked = modeloActual.ea_infinito;
 
@@ -282,7 +324,6 @@ function renderizarTodasLasTablas() {
   actualizarBadges();
 }
 
-// --- Nudos ---
 function renderizarTablaNudos() {
   tablaNudosBody.innerHTML = '';
   modeloActual.nudos.forEach((n, idx) => {
@@ -303,7 +344,6 @@ function renderizarTablaNudos() {
     tablaNudosBody.appendChild(tr);
   });
 
-  // Event delegation para inputs
   tablaNudosBody.querySelectorAll('input, select').forEach(el => {
     el.addEventListener('change', e => {
       const idx = Number(e.target.dataset.idx);
@@ -326,7 +366,6 @@ document.getElementById('btn-agregar-nudo').addEventListener('click', () => {
   actualizarBadges();
 });
 
-// --- Barras ---
 function obtenerExtremosNombre(rot_i, rot_j) {
   if (rot_i && rot_j) return "rótula i y j (armadura)";
   if (rot_i) return "rótula en i";
@@ -397,9 +436,7 @@ document.getElementById('btn-agregar-barra').addEventListener('click', () => {
   actualizarBadges();
 });
 
-// --- Cargas ---
 function renderizarTablaCargas() {
-  // 1. Cargas en Nudo
   tablaCargasNudoBody.innerHTML = '';
   modeloActual.cargas_nudo.forEach((c, idx) => {
     const tr = document.createElement('tr');
@@ -415,7 +452,6 @@ function renderizarTablaCargas() {
     tablaCargasNudoBody.appendChild(tr);
   });
 
-  // 2. Cargas Repartidas
   tablaCargasRepartidasBody.innerHTML = '';
   modeloActual.cargas_repartidas.forEach((c, idx) => {
     const tr = document.createElement('tr');
@@ -437,7 +473,6 @@ function renderizarTablaCargas() {
     tablaCargasRepartidasBody.appendChild(tr);
   });
 
-  // 3. Cargas Puntuales
   tablaCargasPuntualesBody.innerHTML = '';
   modeloActual.cargas_puntuales.forEach((c, idx) => {
     const tr = document.createElement('tr');
@@ -457,7 +492,6 @@ function renderizarTablaCargas() {
     tablaCargasPuntualesBody.appendChild(tr);
   });
 
-  // Listeners para inputs de cargas
   document.querySelectorAll('#tab-cargas input, #tab-cargas select').forEach(el => {
     el.addEventListener('change', e => {
       const idx = Number(e.target.dataset.idx);
@@ -534,7 +568,6 @@ document.getElementById('btn-agregar-carga-puntual').addEventListener('click', (
   actualizarBadges();
 });
 
-// Inputs superiores
 modeloTituloInput.addEventListener('change', e => {
   modeloActual.titulo = e.target.value;
 });
@@ -563,7 +596,6 @@ inputArchivo.addEventListener('change', e => {
 });
 
 btnGuardarJson.addEventListener('click', () => {
-  // Asegurar que modeloActual tiene el formato de Modelo.a_dict()
   const dataToSave = {
     titulo: modeloActual.titulo || "Modelo",
     nudos: modeloActual.nudos.map(n => ({
@@ -616,7 +648,16 @@ btnGuardarJson.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// Selector de ejemplos
+// Botón Exportar PDF (vista de impresión @media print)
+btnExportarPdf.addEventListener('click', () => {
+  const meta = document.getElementById('print-meta');
+  if (meta) {
+    const fecha = new Date().toLocaleString('es-PE');
+    meta.textContent = `${modeloActual.titulo} · EA = ${modeloActual.ea_infinito ? '∞' : 'finito'} · Impreso: ${fecha}`;
+  }
+  window.print();
+});
+
 selEjemplo.addEventListener('change', () => {
   cargarEjemploDesdeServidor(selEjemplo.value, true);
 });
@@ -638,16 +679,19 @@ async function resolver(cambiarPestana = false) {
     const t1 = performance.now();
 
     const resultado = JSON.parse(resJsonStr);
+    ultimoResultado = resultado;
     window.__ultimoResultado = resultado;
 
     renderizarResultados(resultado, t1 - t0);
+    renderizarPasos(resultado.html_pasos);
+    actualizarDiagrama();
+
     setStatus('success', `Resuelto en ${(t1 - t0).toFixed(1)} ms`);
 
     if (cambiarPestana) {
       activarPestanaResultados();
     }
 
-    // Notificar al backend si estamos en modo test
     const params = new URLSearchParams(window.location.search);
     if (params.get('test') === '1') {
       await fetch('/api/resultado', {
@@ -674,7 +718,7 @@ function renderizarResultados(res, tiempoMs) {
   // 1. Vector {D}
   elVectorD.innerHTML = '';
   if (res.D.length === 0) {
-    elVectorD.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">0 GDL libres (estructura isostática o empotrada).</p>';
+    elVectorD.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">0 GDL libres.</p>';
   } else {
     res.D.forEach((val, idx) => {
       const div = document.createElement('div');
@@ -768,6 +812,331 @@ function renderizarResultados(res, tiempoMs) {
   elMatrizK.innerHTML = htmlK;
 }
 
+// ----------------------------------------------------------- Hito 3: Renderizar Pasos (informe.py)
+function renderizarPasos(html) {
+  if (!pasosContenedor) return;
+  if (html) {
+    pasosContenedor.innerHTML = html;
+  } else {
+    pasosContenedor.innerHTML = '<p style="color: var(--text-muted);">Sin datos de pasos.</p>';
+  }
+}
+
+// ----------------------------------------------------------- Hito 4: Diagramas Interactivos con Zoom
+let viewBoxState = { x: 0, y: 0, w: 800, h: 500, origX: 0, origY: 0, origW: 800, origH: 500 };
+
+document.querySelectorAll('.diag-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diag-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    diagramaActual = btn.getAttribute('data-diag');
+    actualizarDiagrama();
+  });
+});
+
+function actualizarDiagrama() {
+  if (!ultimoResultado || !ultimoResultado.diagramas_barras) return;
+  dibujarDiagramaSVG(diagramaActual);
+}
+
+function dibujarDiagramaSVG(tipo) {
+  const nudos = modeloActual.nudos;
+  if (!nudos || nudos.length === 0) return;
+
+  // 1. Calcular caja envolvente en coordenadas reales
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nudos.forEach(n => {
+    if (n.x < minX) minX = n.x;
+    if (n.x > maxX) maxX = n.x;
+    if (n.y < minY) minY = n.y;
+    if (n.y > maxY) maxY = n.y;
+  });
+
+  const spanX = Math.max(maxX - minX, 1.0);
+  const spanY = Math.max(maxY - minY, 1.0);
+  const spanMax = Math.max(spanX, spanY);
+
+  const W = 800, H = 500;
+  const pad = 90;
+  const escala = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY);
+
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const toSvgX = (x) => W / 2 + (x - cx) * escala;
+  const toSvgY = (y) => H / 2 - (y - cy) * escala; // Y invertida hacia arriba
+
+  let svgContent = '';
+
+  // Cuadrícula sutil
+  svgContent += `<defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f43f5e"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#grid)" />`;
+
+  // Factor de escala para diagramas de esfuerzos
+  let valMaxAbs = 1e-12;
+  const diagBarras = ultimoResultado.diagramas_barras || [];
+  diagBarras.forEach(b => {
+    if (tipo === 'DMF') b.M.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
+    if (tipo === 'DFC') b.V.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
+    if (tipo === 'DFN') b.N.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
+    if (tipo === 'def') b.v.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
+  });
+
+  const escalaEsfuerzo = (0.15 * spanMax) / (valMaxAbs > 0 ? valMaxAbs : 1.0);
+
+  // 2. Dibujar estructura base (ejes de barras)
+  diagBarras.forEach(b => {
+    const xi = toSvgX(b.xi), yi = toSvgY(b.yi);
+    const xj = toSvgX(b.xi + b.L * b.c), yj = toSvgY(b.yi + b.L * b.s);
+
+    // Eje de la barra
+    svgContent += `<line x1="${xi}" y1="${yi}" x2="${xj}" y2="${yj}" stroke="#334155" stroke-width="4" stroke-linecap="round"/>`;
+
+    // Brazos rígidos
+    if (b.bi > 0) {
+      const xbi = toSvgX(b.xi + b.bi * b.c), ybi = toSvgY(b.yi + b.bi * b.s);
+      svgContent += `<line x1="${xi}" y1="${yi}" x2="${xbi}" y2="${ybi}" stroke="#0f172a" stroke-width="8" stroke-linecap="square"/>`;
+    }
+    if (b.bj > 0) {
+      const xbj = toSvgX(b.xi + (b.L - b.bj) * b.c), ybj = toSvgY(b.yi + (b.L - b.bj) * b.s);
+      svgContent += `<line x1="${xbj}" y1="${ybj}" x2="${xj}" y2="${yj}" stroke="#0f172a" stroke-width="8" stroke-linecap="square"/>`;
+    }
+
+    // 3. Dibujar diagramas específicos
+    if (tipo === 'def') {
+      // Deformada
+      let defPath = '';
+      for (let k = 0; k < b.xs.length; k++) {
+        const x_k = b.xs[k];
+        const v_k = b.v[k] * escalaEsfuerzo;
+        const u_k = b.u[k] * escalaEsfuerzo;
+        const x_def = b.xi + x_k * b.c - v_k * b.s + u_k * b.c;
+        const y_def = b.yi + x_k * b.s + v_k * b.c + u_k * b.s;
+        const sx = toSvgX(x_def), sy = toSvgY(y_def);
+        defPath += (k === 0 ? `M ${sx} ${sy}` : ` L ${sx} ${sy}`);
+      }
+      svgContent += `<path d="${defPath}" fill="none" stroke="#a855f7" stroke-width="3" stroke-linecap="round"/>`;
+    } else if (tipo === 'DMF' || tipo === 'DFC' || tipo === 'DFN') {
+      // Diagramas DMF, DFC, DFN con polígonos sombreados
+      const valores = tipo === 'DMF' ? b.M : (tipo === 'DFC' ? b.V : b.N);
+      const colorTrazo = tipo === 'DMF' ? '#ef4444' : (tipo === 'DFC' ? '#38bdf8' : '#14b8a6');
+      const colorRelleno = tipo === 'DMF' ? 'rgba(239, 68, 68, 0.2)' : (tipo === 'DFC' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(20, 184, 166, 0.2)');
+
+      // Perpendicular local: (-s, c)
+      // M > 0 tracciona cara -y (lado de tracción)
+      const signo = tipo === 'DMF' ? -1 : 1;
+
+      let poligono = `M ${xi} ${yi}`;
+      let curvaD = '';
+      for (let k = 0; k < b.xs.length; k++) {
+        const x_k = b.xs[k];
+        const val = valores[k] * escalaEsfuerzo * signo;
+        const x_curva = (b.xi + x_k * b.c) + val * (-b.s);
+        const y_curva = (b.yi + x_k * b.s) + val * b.c;
+        const sx = toSvgX(x_curva), sy = toSvgY(y_curva);
+        poligono += ` L ${sx} ${sy}`;
+        curvaD += (k === 0 ? `M ${sx} ${sy}` : ` L ${sx} ${sy}`);
+      }
+      poligono += ` L ${xj} ${yj} Z`;
+
+      svgContent += `<path d="${poligono}" fill="${colorRelleno}" stroke="none"/>`;
+      svgContent += `<path d="${curvaD}" fill="none" stroke="${colorTrazo}" stroke-width="2"/>`;
+
+      // Texto de valores en extremos de barra
+      const vIni = valores[0], vFin = valores[valores.length - 1];
+      if (Math.abs(vIni) > 0.05) {
+        const x0 = toSvgX((b.xi) + vIni * escalaEsfuerzo * signo * (-b.s));
+        const y0 = toSvgY((b.yi) + vIni * escalaEsfuerzo * signo * b.c);
+        svgContent += `<text x="${x0}" y="${y0 - 6}" fill="${colorTrazo}" font-size="11" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">${vIni.toFixed(1)}</text>`;
+      }
+      if (Math.abs(vFin) > 0.05) {
+        const x1 = toSvgX((b.xi + b.L * b.c) + vFin * escalaEsfuerzo * signo * (-b.s));
+        const y1 = toSvgY((b.yi + b.L * b.s) + vFin * escalaEsfuerzo * signo * b.c);
+        svgContent += `<text x="${x1}" y="${y1 - 6}" fill="${colorTrazo}" font-size="11" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">${vFin.toFixed(1)}</text>`;
+      }
+    }
+  });
+
+  // 4. Dibujar apoyos y nudos
+  nudos.forEach(n => {
+    const sx = toSvgX(n.x), sy = toSvgY(n.y);
+    const ap = n.apoyo;
+
+    // Símbolos de apoyos
+    if (ap === 'empotrado') {
+      svgContent += `<line x1="${sx - 16}" y1="${sy + 10}" x2="${sx + 16}" y2="${sy + 10}" stroke="#94a3b8" stroke-width="3"/>`;
+      for (let dx = -14; dx <= 14; dx += 6) {
+        svgContent += `<line x1="${sx + dx}" y1="${sy + 10}" x2="${sx + dx - 6}" y2="${sy + 18}" stroke="#64748b" stroke-width="1.5"/>`;
+      }
+    } else if (ap === 'articulado') {
+      svgContent += `<polygon points="${sx},${sy} ${sx - 10},${sy + 16} ${sx + 10},${sy + 16}" fill="none" stroke="#94a3b8" stroke-width="2"/>`;
+      svgContent += `<line x1="${sx - 14}" y1="${sy + 17}" x2="${sx + 14}" y2="${sy + 17}" stroke="#94a3b8" stroke-width="2"/>`;
+    } else if (ap.startsWith('rodillo')) {
+      svgContent += `<polygon points="${sx},${sy} ${sx - 10},${sy + 13} ${sx + 10},${sy + 13}" fill="none" stroke="#94a3b8" stroke-width="2"/>`;
+      svgContent += `<circle cx="${sx - 5}" cy="${sy + 17}" r="3" fill="none" stroke="#94a3b8" stroke-width="1.5"/>`;
+      svgContent += `<circle cx="${sx + 5}" cy="${sy + 17}" r="3" fill="none" stroke="#94a3b8" stroke-width="1.5"/>`;
+      svgContent += `<line x1="${sx - 14}" y1="${sy + 22}" x2="${sx + 14}" y2="${sy + 22}" stroke="#94a3b8" stroke-width="2"/>`;
+    }
+
+    // Reacciones si tipo == 'reacciones'
+    if (tipo === 'reacciones' && ultimoResultado.reacciones[n.id]) {
+      const r = ultimoResultado.reacciones[n.id];
+      const rx = r[0], ry = r[1], mz = r[2];
+
+      if (Math.abs(rx) > 0.01) {
+        const dir = rx > 0 ? 1 : -1;
+        const x1 = sx - dir * 45, x2 = sx - dir * 6;
+        svgContent += `<line x1="${x1}" y1="${sy}" x2="${x2}" y2="${sy}" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>`;
+        svgContent += `<text x="${x1}" y="${sy - 8}" fill="#38bdf8" font-size="11" font-family="JetBrains Mono" font-weight="600">Rx=${rx.toFixed(2)}t</text>`;
+      }
+      if (Math.abs(ry) > 0.01) {
+        const dir = ry > 0 ? 1 : -1;
+        const y1 = sy + dir * 45, y2 = sy + dir * 6;
+        svgContent += `<line x1="${sx}" y1="${y1}" x2="${sx}" y2="${y2}" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrow)"/>`;
+        svgContent += `<text x="${sx + 8}" y="${(y1 + y2) / 2}" fill="#34d399" font-size="11" font-family="JetBrains Mono" font-weight="600">Ry=${ry.toFixed(2)}t</text>`;
+      }
+      if (Math.abs(mz) > 0.01) {
+        svgContent += `<circle cx="${sx}" cy="${sy}" r="18" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="10 5"/>`;
+        svgContent += `<text x="${sx + 20}" y="${sy - 15}" fill="#fbbf24" font-size="11" font-family="JetBrains Mono" font-weight="600">M=${mz.toFixed(2)}</text>`;
+      }
+    }
+
+    // Círculo del nudo y etiqueta
+    svgContent += `<circle cx="${sx}" cy="${sy}" r="5" fill="#38bdf8" stroke="#0b0f19" stroke-width="2"/>`;
+    svgContent += `<text x="${sx + 8}" y="${sy - 8}" fill="#cbd5e1" font-size="11" font-family="Inter" font-weight="600">N${n.id}</text>`;
+  });
+
+  diagramaSvg.innerHTML = svgContent;
+
+  // Actualizar estado de viewBox
+  viewBoxState.origW = W;
+  viewBoxState.origH = H;
+  viewBoxState.w = W;
+  viewBoxState.h = H;
+  viewBoxState.x = 0;
+  viewBoxState.y = 0;
+  diagramaSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const nombres = {
+    modelo: "Modelo geométrico y cargas",
+    def: "Deformada elástica (flecha magnificada)",
+    DMF: "Diagrama de Momentos Flectores [M] (t·m)",
+    DFC: "Diagrama de Fuerzas Cortantes [V] (t)",
+    DFN: "Diagrama de Fuerzas Normales [N] (t)",
+    reacciones: "Reacciones en apoyos (Rx, Ry, Mz)"
+  };
+  diagramaInfo.textContent = `${nombres[tipo] || tipo} · Zoom: dos dedos o rueda`;
+}
+
+// ----------------------------------------------------------- Zoom con dos dedos y Pan Táctil
+let touchStartDist = 0;
+let isPanning = false;
+let startPanX = 0, startPanY = 0;
+
+function updateSvgViewBox() {
+  diagramaSvg.setAttribute('viewBox', `${viewBoxState.x} ${viewBoxState.y} ${viewBoxState.w} ${viewBoxState.h}`);
+}
+
+diagramaWrapper.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    // Inicio de pinch zoom
+    touchStartDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  } else if (e.touches.length === 1) {
+    // Inicio de pan
+    isPanning = true;
+    startPanX = e.touches[0].clientX;
+    startPanY = e.touches[0].clientY;
+  }
+}, { passive: false });
+
+diagramaWrapper.addEventListener('touchmove', e => {
+  if (e.touches.length === 2 && touchStartDist > 0) {
+    e.preventDefault();
+    const currentDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const factor = touchStartDist / currentDist;
+    touchStartDist = currentDist;
+
+    const newW = viewBoxState.w * factor;
+    const newH = viewBoxState.h * factor;
+    viewBoxState.x += (viewBoxState.w - newW) / 2;
+    viewBoxState.y += (viewBoxState.h - newH) / 2;
+    viewBoxState.w = newW;
+    viewBoxState.h = newH;
+    updateSvgViewBox();
+  } else if (e.touches.length === 1 && isPanning) {
+    e.preventDefault();
+    const dx = (e.touches[0].clientX - startPanX) * (viewBoxState.w / 800);
+    const dy = (e.touches[0].clientY - startPanY) * (viewBoxState.h / 500);
+    viewBoxState.x -= dx;
+    viewBoxState.y -= dy;
+    startPanX = e.touches[0].clientX;
+    startPanY = e.touches[0].clientY;
+    updateSvgViewBox();
+  }
+}, { passive: false });
+
+diagramaWrapper.addEventListener('touchend', () => {
+  isPanning = false;
+  touchStartDist = 0;
+});
+
+// Zoom con rueda de ratón
+diagramaWrapper.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1.15 : 0.85;
+  const newW = viewBoxState.w * factor;
+  const newH = viewBoxState.h * factor;
+  viewBoxState.x += (viewBoxState.w - newW) / 2;
+  viewBoxState.y += (viewBoxState.h - newH) / 2;
+  viewBoxState.w = newW;
+  viewBoxState.h = newH;
+  updateSvgViewBox();
+}, { passive: false });
+
+// Botones de zoom
+document.getElementById('btn-zoom-in')?.addEventListener('click', () => {
+  const newW = viewBoxState.w * 0.8;
+  const newH = viewBoxState.h * 0.8;
+  viewBoxState.x += (viewBoxState.w - newW) / 2;
+  viewBoxState.y += (viewBoxState.h - newH) / 2;
+  viewBoxState.w = newW;
+  viewBoxState.h = newH;
+  updateSvgViewBox();
+});
+
+document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
+  const newW = viewBoxState.w * 1.25;
+  const newH = viewBoxState.h * 1.25;
+  viewBoxState.x += (viewBoxState.w - newW) / 2;
+  viewBoxState.y += (viewBoxState.h - newH) / 2;
+  viewBoxState.w = newW;
+  viewBoxState.h = newH;
+  updateSvgViewBox();
+});
+
+document.getElementById('btn-zoom-reset')?.addEventListener('click', () => {
+  viewBoxState.x = 0;
+  viewBoxState.y = 0;
+  viewBoxState.w = viewBoxState.origW;
+  viewBoxState.h = viewBoxState.origH;
+  updateSvgViewBox();
+});
+
 // ----------------------------------------------------------- Test Automatizado: TODOS los ejemplos
 async function ejecutarTestTodos() {
   setStatus('loading', 'Ejecutando suite completa de validación (9 ejemplos)...');
@@ -785,7 +1154,6 @@ async function ejecutarTestTodos() {
     }
   }
 
-  // Enviar todos los resultados al backend de test
   try {
     await fetch('/api/resultado', {
       method: 'POST',
