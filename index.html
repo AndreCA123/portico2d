@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pórtico 2D · Pyodide Web</title>
+  <title>Pórtico 2D · Móvil & Web</title>
   
   <!-- Tipografía Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,74 +20,137 @@
       <div class="brand">
         <div class="brand-icon">P2</div>
         <div>
-          <h1>Pórtico 2D <span class="badge-tag">Pyodide Web</span></h1>
-          <p>Método de Rigidez Sistematizado · Fase 1 (Hito 1)</p>
+          <h1>Pórtico 2D <span class="badge-tag">Hito 2</span></h1>
+          <p>Método de Rigidez · Móvil y WebAssembly</p>
         </div>
       </div>
       <div class="status-indicator">
         <div id="status-dot" class="status-dot loading"></div>
-        <span id="status-text">Iniciando entorno WebAssembly...</span>
+        <span id="status-text">Iniciando Pyodide...</span>
       </div>
     </header>
 
-    <section class="control-panel">
-      <div class="control-row">
-        <div class="control-group">
-          <label class="control-label" for="sel-ejemplo">Modelo / Ejemplo:</label>
-          <select id="sel-ejemplo">
-            <option value="aplicacion2_portico_QD.json" selected>Aplicación 2 – Pórtico Q-D con barra inclinada</option>
-            <option value="figura33_profesor.json">Figura 33 (Solución del profesor, EI=4000)</option>
-            <option value="figura33_portico_dos_vanos.json">Figura 33 (Pórtico dos vanos, EI=1)</option>
-            <option value="portico_simple.json">Pórtico simple</option>
-            <option value="viga_continua.json">Viga continua</option>
-            <option value="v02_viga_gerber_rotula.json">Viga Gerber con rótula</option>
-            <option value="v02_armadura_triangular.json">Armadura triangular</option>
-            <option value="v02_portico_brazos_rigidos.json">Pórtico con brazos rígidos</option>
-            <option value="v02_viga_trapezoidal_parcial.json">Viga con carga trapezoidal y parcial</option>
-          </select>
-        </div>
+    <!-- Barra superior: Título, EA=inf, Abrir/Guardar y Ejemplos -->
+    <section class="top-toolbar">
+      <div class="toolbar-group" style="flex: 1; min-width: 260px;">
+        <input type="text" id="modelo-titulo" class="input-titulo" placeholder="Título del modelo" title="Nombre o descripción del pórtico">
+        <label class="ea-toggle" title="Las barras no cambian de longitud (método del curso)">
+          <input type="checkbox" id="modelo-ea-inf" checked>
+          <span>EA = ∞</span>
+        </label>
+      </div>
 
-        <div class="control-group">
-          <button id="btn-resolver" class="btn-primary" disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            <span>Resolver Modelo</span>
-          </button>
-          <span id="tiempo-calc" class="mono-num" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
+      <div class="toolbar-group">
+        <select id="sel-ejemplo" style="padding: 0.45rem 0.65rem; font-size: 0.8rem;" title="Cargar ejemplo oficial">
+          <option value="aplicacion2_portico_QD.json" selected>Aplicación 2 (Pórtico Q-D)</option>
+          <option value="figura33_profesor.json">Figura 33 (Solución Aragón)</option>
+          <option value="figura33_portico_dos_vanos.json">Figura 33 (Pórtico 2 vanos)</option>
+          <option value="portico_simple.json">Pórtico simple</option>
+          <option value="viga_continua.json">Viga continua</option>
+          <option value="v02_armadura_triangular.json">Armadura triangular (EA finito)</option>
+          <option value="v02_portico_brazos_rigidos.json">Pórtico con brazos rígidos</option>
+          <option value="v02_viga_gerber_rotula.json">Viga Gerber (con rótula)</option>
+          <option value="v02_viga_trapezoidal_parcial.json">Viga trapezoidal y parcial</option>
+        </select>
+        
+        <input type="file" id="input-archivo" accept=".json" style="display: none;">
+        <button id="btn-abrir-json" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;">
+          📂 Abrir
+        </button>
+        <button id="btn-guardar-json" class="btn btn-secondary" style="padding: 0.45rem 0.75rem; font-size: 0.8rem;">
+          💾 Guardar
+        </button>
+      </div>
+    </section>
+
+    <!-- Pestañas pensadas para pantalla de celular -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="tab-nudos" role="tab">
+        <span>📍 Nudos</span>
+        <span class="tab-badge" id="badge-nudos">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-barras" role="tab">
+        <span>📏 Barras</span>
+        <span class="tab-badge" id="badge-barras">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-cargas" role="tab">
+        <span>⚡ Cargas</span>
+        <span class="tab-badge" id="badge-cargas">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-resultados" role="tab">
+        <span>📊 Resultados</span>
+      </button>
+    </nav>
+
+    <!-- Pestaña 1: NUDOS -->
+    <section id="tab-nudos" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📍 Nudos de la estructura</h2>
+          <button id="btn-agregar-nudo" class="btn-sm">+ Agregar Nudo</button>
+        </div>
+        <div class="table-responsive">
+          <table class="editor-table" id="tabla-nudos">
+            <thead>
+              <tr>
+                <th style="width: 60px;">ID</th>
+                <th>X (m)</th>
+                <th>Y (m)</th>
+                <th>Tipo de Apoyo</th>
+                <th style="width: 50px; text-align: center;"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
     </section>
 
-    <main class="results-grid" id="seccion-resultados" style="display: none;">
-      <!-- Tarjeta: Desplazamientos Globales {D} -->
+    <!-- Pestaña 2: BARRAS -->
+    <section id="tab-barras" class="tab-content">
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">
-            <span>Desplazamientos Globales {D}</span>
-            <span class="tag">m, rad</span>
-          </h2>
-        </div>
-        <div id="vector-D" class="vector-list"></div>
-      </div>
-
-      <!-- Tarjeta: Fuerzas Internas {q} por barra -->
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">
-            <span>Fuerzas en Extremos {q}</span>
-            <span class="tag">[Vi, Mi, Vj, Mj]</span>
-          </h2>
+          <h2 class="card-title">📏 Barras (Elementos)</h2>
+          <button id="btn-agregar-barra" class="btn-sm">+ Agregar Barra</button>
         </div>
         <div class="table-responsive">
-          <table class="data-table" id="tabla-q">
+          <table class="editor-table" id="tabla-barras">
             <thead>
               <tr>
-                <th>Barra</th>
-                <th>V_i (t)</th>
-                <th>M_i (t·m)</th>
-                <th>V_j (t)</th>
-                <th>M_j (t·m)</th>
+                <th style="width: 50px;">ID</th>
+                <th style="width: 80px;">Nudo i</th>
+                <th style="width: 80px;">Nudo j</th>
+                <th>EI (t·m²)</th>
+                <th>EA (t)</th>
+                <th>Extremos</th>
+                <th>Brazo i (m)</th>
+                <th>Brazo j (m)</th>
+                <th style="width: 50px; text-align: center;"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pestaña 3: CARGAS -->
+    <section id="tab-cargas" class="tab-content">
+      <!-- Cargas en Nudos -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">● Cargas Directas en Nudos</h2>
+          <button id="btn-agregar-carga-nudo" class="btn-sm">+ Carga en Nudo</button>
+        </div>
+        <div class="table-responsive">
+          <table class="editor-table" id="tabla-cargas-nudo">
+            <thead>
+              <tr>
+                <th style="width: 90px;">Nudo</th>
+                <th>Fx (t) [→+]</th>
+                <th>Fy (t) [↑+]</th>
+                <th>Mz (t·m) [↺+]</th>
+                <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -95,22 +158,23 @@
         </div>
       </div>
 
-      <!-- Tarjeta: Reacciones en Apoyos -->
+      <!-- Cargas Repartidas -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">
-            <span>Reacciones en Apoyos</span>
-            <span class="tag">Global X, Y, Giro</span>
-          </h2>
+          <h2 class="card-title">▰ Cargas Repartidas sobre Barras</h2>
+          <button id="btn-agregar-carga-repartida" class="btn-sm">+ Carga Repartida</button>
         </div>
         <div class="table-responsive">
-          <table class="data-table" id="tabla-reacciones">
+          <table class="editor-table" id="tabla-cargas-repartidas">
             <thead>
               <tr>
-                <th>Nudo</th>
-                <th>Rx (t)</th>
-                <th>Ry (t)</th>
-                <th>Mz (t·m)</th>
+                <th style="width: 80px;">Barra</th>
+                <th>w₁ (t/m en a)</th>
+                <th>w₂ (t/m en b)</th>
+                <th>a (m)</th>
+                <th>b (m, 0=hasta j)</th>
+                <th>Dirección</th>
+                <th style="width: 50px; text-align: center;"></th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -118,34 +182,148 @@
         </div>
       </div>
 
-      <!-- Tarjeta: Matriz [K] y Vector {R} -->
+      <!-- Cargas Puntuales -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">
-            <span>Matriz [K] y Cargas de Fijación {R}</span>
-            <span class="tag">GDL globales</span>
-          </h2>
+          <h2 class="card-title">↓ Cargas Puntuales sobre Barras</h2>
+          <button id="btn-agregar-carga-puntual" class="btn-sm">+ Carga Puntual</button>
         </div>
-        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-          <strong>Vector {R}:</strong> <span id="vector-R" class="mono-num"></span>
+        <div class="table-responsive">
+          <table class="editor-table" id="tabla-cargas-puntuales">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Barra</th>
+                <th>P (t)</th>
+                <th>a (m desde i)</th>
+                <th>Dirección</th>
+                <th style="width: 50px; text-align: center;"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <div class="matrix-container" id="matriz-K"></div>
       </div>
+    </section>
 
-      <!-- Tarjeta: Inspección JSON Completo -->
-      <div class="card full-width">
-        <div class="card-header">
-          <h2 class="card-title">
-            <span>Salida Completa del Solver (JSON)</span>
-            <span class="tag">Verificación</span>
-          </h2>
+    <!-- Pestaña 4: RESULTADOS NUMÉRICOS -->
+    <section id="tab-resultados" class="tab-content">
+      <div class="results-grid">
+        <!-- Tarjeta: Desplazamientos Globales {D} -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>Desplazamientos Globales {D}</span>
+              <span class="badge-tag">m, rad</span>
+            </h2>
+          </div>
+          <div id="vector-D" class="vector-list">
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Calcula el modelo para ver {D}.</p>
+          </div>
         </div>
-        <pre class="code-viewer" id="json-salida">Esperando cálculo...</pre>
+
+        <!-- Tarjeta: Fuerzas en Extremos {q} -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>Fuerzas en Extremos de Barra {q}</span>
+              <span class="badge-tag" id="tag-filas-q">Locales</span>
+            </h2>
+          </div>
+          <div class="table-responsive">
+            <table class="editor-table" id="tabla-q">
+              <thead id="tabla-q-thead">
+                <tr>
+                  <th>Barra</th>
+                  <th>V_i (t)</th>
+                  <th>M_i (t·m)</th>
+                  <th>V_j (t)</th>
+                  <th>M_j (t·m)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tarjeta: Reacciones en Apoyos -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>Reacciones en Apoyos</span>
+              <span class="badge-tag">Global</span>
+            </h2>
+          </div>
+          <div class="table-responsive">
+            <table class="editor-table" id="tabla-reacciones">
+              <thead>
+                <tr>
+                  <th>Nudo</th>
+                  <th>Rx (t)</th>
+                  <th>Ry (t)</th>
+                  <th>Mz (t·m)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tarjeta: Desplazamientos en Nudos {u} -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>Desplazamientos Nodos {u}</span>
+              <span class="badge-tag">ux, uy, θ</span>
+            </h2>
+          </div>
+          <div class="table-responsive">
+            <table class="editor-table" id="tabla-u-nudos">
+              <thead>
+                <tr>
+                  <th>Nudo</th>
+                  <th>ux (m)</th>
+                  <th>uy (m)</th>
+                  <th>θ (rad)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tarjeta: Matriz [K] y Vector {R} -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>Matriz [K] y Cargas de Fijación {R}</span>
+              <span class="badge-tag">GDL globales</span>
+            </h2>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+            <strong>Vector {R}:</strong> <span id="vector-R" class="mono-num">[]</span>
+          </div>
+          <div class="matrix-container" id="matriz-K">
+            <p style="color: var(--text-muted); font-size: 0.85rem;">[K] se mostrará tras calcular.</p>
+          </div>
+        </div>
       </div>
-    </main>
+    </section>
+
+    <!-- Barra fija inferior de acciones (móvil) -->
+    <div class="mobile-action-bar">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span id="tiempo-calc" class="mono-num" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+      </div>
+      <button id="btn-resolver" class="btn btn-primary" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span>Calcular</span>
+      </button>
+    </div>
 
     <footer>
-      Pórtico 2D · Análisis Estructural 2 (UNSA 2026-B) · Ejecución nativa WebAssembly vía Pyodide
+      Pórtico 2D · UNSA 2026-B · Fase 1 (Hito 2: Edición móvil + Resultados)
     </footer>
   </div>
 

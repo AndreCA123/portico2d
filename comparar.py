@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
 comparar.py: Compara los resultados de la PC (Python nativo) con los del
-navegador (Pyodide WebAssembly) para la Aplicación 2 (tolerancia 1e-6).
+navegador (Pyodide WebAssembly) para TODOS los ejemplos en Portico2D/ejemplos/
+(tolerancia exigida: 1e-6).
 """
 import os
 import sys
+import glob
 import json
 import time
 import shutil
@@ -60,14 +62,12 @@ class ServidorPyodideTest(SimpleHTTPRequestHandler):
             self.end_headers()
 
     def end_headers(self):
-        # Evitar problemas de caché en desarrollo
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()
 
     def log_message(self, format, *args):
-        # Silenciar logs normales del servidor HTTP para mantener limpia la consola
         pass
 
 
@@ -90,21 +90,28 @@ def resolver_en_pc(ruta_json):
 
 
 def ejecutar_comparacion():
-    print("=" * 80)
-    print("VALIDACIÓN HITO 1: NAVEGADOR (Pyodide) vs PC (Python nativo)")
+    print("=" * 86)
+    print("VALIDACIÓN MULTI-EJEMPLO: NAVEGADOR (Pyodide) vs PC (Python nativo)")
     print(f"Tolerancia exigida: {TOLERANCIA}")
-    print("=" * 80)
+    print("=" * 86)
 
-    # 1. Asegurar módulos actualizados en web/py/
+    # 1. Asegurar módulos y ejemplos sincronizados en web/
     script_construir = os.path.join(AQUI, "construir.sh")
     if os.path.exists(script_construir):
         print("==> Ejecutando construir.sh para sincronizar módulos...")
         subprocess.run(["bash", script_construir], check=True, stdout=subprocess.DEVNULL)
 
-    # 2. Calcular solución de referencia en PC
-    ruta_ejemplo = os.path.join(P2D_DIR, "ejemplos", "aplicacion2_portico_QD.json")
-    print(f"==> Resolviendo en PC con Python nativo: {os.path.basename(ruta_ejemplo)}")
-    sol_pc = resolver_en_pc(ruta_ejemplo)
+    # 2. Descubrir y resolver todos los ejemplos en PC
+    archivos_ejemplos = sorted(glob.glob(os.path.join(P2D_DIR, "ejemplos", "*.json")))
+    if not archivos_ejemplos:
+        print("ERROR: No se encontraron archivos en Portico2D/ejemplos/")
+        sys.exit(1)
+
+    print(f"==> Resolviendo {len(archivos_ejemplos)} ejemplos en PC con Python nativo...")
+    soluciones_pc = {}
+    for ruta in archivos_ejemplos:
+        nombre = os.path.basename(ruta)
+        soluciones_pc[nombre] = resolver_en_pc(ruta)
 
     # 3. Iniciar servidor HTTP local
     puerto = buscar_puerto_libre()
@@ -115,8 +122,8 @@ def ejecutar_comparacion():
     servidor = HTTPServer(("127.0.0.1", puerto), ServidorPyodideTest)
     hilo = threading.Thread(target=servidor.serve_forever, daemon=True)
     hilo.start()
-    url = f"http://127.0.0.1:{puerto}/?test=1"
-    print(f"==> Servidor HTTP local iniciado en {url}")
+    url = f"http://127.0.0.1:{puerto}/?test_todos=1"
+    print(f"==> Servidor HTTP iniciado en {url}")
 
     # 4. Lanzar navegador headless
     navegadores = ["google-chrome", "chromium", "chromium-browser", "firefox"]
@@ -139,11 +146,11 @@ def ejecutar_comparacion():
         ]
         proc_navegador = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        print(f"==> Navegador no encontrado automáticamente. Por favor abre: {url}")
+        print(f"==> Abre en cualquier navegador: {url}")
 
-    # 5. Esperar resultado del navegador (Pyodide descarga WebAssembly y NumPy)
-    print("==> Esperando respuesta del navegador (Pyodide)...")
-    espera_max = 60  # segundos
+    # 5. Esperar resolución completa de los 9 ejemplos en el navegador
+    print("==> Esperando cálculo de todos los ejemplos en Pyodide...")
+    espera_max = 75  # segundos
     completado = evento.wait(timeout=espera_max)
 
     if proc_navegador:
@@ -156,94 +163,78 @@ def ejecutar_comparacion():
     servidor.shutdown()
 
     if not completado or ServidorPyodideTest.resultado_recibido is None:
-        print(f"ERROR: No se recibió resultado del navegador en {espera_max} s.")
+        print(f"ERROR: No se recibió respuesta del navegador en {espera_max} s.")
         sys.exit(1)
 
-    sol_web = ServidorPyodideTest.resultado_recibido
-    print("==> Resultado recibido con éxito desde Pyodide WebAssembly.\n")
+    soluciones_web = ServidorPyodideTest.resultado_recibido
+    print("==> Resultados de todos los ejemplos recibidos desde Pyodide.\n")
 
-    # 6. Comparación rigurosa de {D} y {q}
-    errores = []
-    max_error_global = 0.0
+    # 6. Comparar cada ejemplo individualmente
+    print("-" * 86)
+    print(f"{'#':<3} {'Ejemplo':<36} {'Max Diff {D}':<15} {'Max Diff {q}':<15} {'Estado'}")
+    print("-" * 86)
 
-    # A. Comparar {D}
-    D_pc = sol_pc["D"]
-    D_web = np.array(sol_web["D"])
-    diff_D = np.abs(D_pc - D_web)
-    max_diff_D = np.max(diff_D)
-    max_error_global = max(max_error_global, max_diff_D)
+    discrepancias = []
+    max_global = 0.0
 
-    print("-" * 80)
-    print("1. VECTOR DE DESPLAZAMIENTOS GLOBALES {D}")
-    print(f"   {'GDL':<8} {'PC (Nativo)':<18} {'Web (Pyodide)':<18} {'Diferencia':<16} {'Estado'}")
-    print("   " + "-" * 70)
-    for i in range(len(D_pc)):
-        gdl_label = f"D{i+1}"
-        d_pc = D_pc[i]
-        d_web = D_web[i]
-        err = diff_D[i]
-        estado = "✓ COINCIDE" if err <= TOLERANCIA else "✗ DIFERENCIA"
-        if err > TOLERANCIA:
-            errores.append(f"{gdl_label}: err={err} > {TOLERANCIA}")
-        print(f"   {gdl_label:<8} {d_pc:<18.10f} {d_web:<18.10f} {err:<16.2e} {estado}")
-
-    # B. Comparar {q} por barra
-    print("\n" + "-" * 80)
-    print("2. VECTORES DE FUERZAS EN EXTREMOS DE BARRA {q}")
-    print(f"   {'Barra':<8} {'Extremo':<10} {'PC (Nativo)':<16} {'Web (Pyodide)':<16} {'Diferencia':<14} {'Estado'}")
-    print("   " + "-" * 74)
-
-    extremos = ["V_i (t)", "M_i (t·m)", "V_j (t)", "M_j (t·m)"]
-    for b_id, q_pc in sol_pc["q"].items():
-        if b_id not in sol_web["q"]:
-            errores.append(f"Falta barra {b_id} en resultado web")
+    for idx, (nombre, sol_pc) in enumerate(soluciones_pc.items(), 1):
+        if nombre not in soluciones_web:
+            discrepancias.append(f"{nombre}: No fue resuelto por el navegador")
+            print(f"{idx:<3} {nombre:<36} {'NO ENCONTRADO':<15} {'-':<15} ✗ ERROR")
             continue
-        q_web = np.array(sol_web["q"][b_id])
-        diff_q = np.abs(q_pc - q_web)
-        max_diff_q = np.max(diff_q)
-        max_error_global = max(max_error_global, max_diff_q)
 
-        for j in range(4):
-            ext_label = extremos[j]
-            v_pc = q_pc[j]
-            v_web = q_web[j]
-            err = diff_q[j]
-            estado = "✓ COINCIDE" if err <= TOLERANCIA else "✗ DIFERENCIA"
-            if err > TOLERANCIA:
-                errores.append(f"Barra {b_id} {ext_label}: err={err} > {TOLERANCIA}")
-            b_label = f"Barra {b_id}" if j == 0 else ""
-            print(f"   {b_label:<8} {ext_label:<10} {v_pc:<16.6f} {v_web:<16.6f} {err:<14.2e} {estado}")
+        sol_web = soluciones_web[nombre]
+        if "error" in sol_web:
+            discrepancias.append(f"{nombre}: Error en navegador -> {sol_web['error']}")
+            print(f"{idx:<3} {nombre:<36} {'FALLO PYTHON':<15} {'-':<15} ✗ ERROR")
+            continue
 
-    # C. Comparar [K] y {R}
-    K_pc = sol_pc["K"]
-    K_web = np.array(sol_web["K"])
-    diff_K = np.abs(K_pc - K_web)
-    max_diff_K = np.max(diff_K)
-    max_error_global = max(max_error_global, max_diff_K)
+        # Comparar {D}
+        D_pc = np.array(sol_pc["D"])
+        D_web = np.array(sol_web["D"])
+        diff_D = np.abs(D_pc - D_web)
+        max_d_D = np.max(diff_D) if len(diff_D) > 0 else 0.0
 
-    R_pc = sol_pc["R"]
-    R_web = np.array(sol_web["R"])
-    diff_R = np.abs(R_pc - R_web)
-    max_diff_R = np.max(diff_R)
-    max_error_global = max(max_error_global, max_diff_R)
+        # Comparar {q}
+        max_d_q = 0.0
+        for b_id, q_pc in sol_pc["q"].items():
+            if b_id not in sol_web["q"]:
+                discrepancias.append(f"{nombre}: falta barra {b_id} en web")
+                continue
+            q_web = np.array(sol_web["q"][b_id])
+            diff_q = np.abs(q_pc - q_web)
+            max_d_q = max(max_d_q, np.max(diff_q))
 
-    print("\n" + "-" * 80)
-    print("3. MATRIZ DE RIGIDEZ [K] Y VECTOR DE CARGAS DE FIJACIÓN {R}")
-    print(f"   Diferencia máxima en [K]: {max_diff_K:.2e} ({'✓ OK' if max_diff_K <= TOLERANCIA else '✗ ERROR'})")
-    print(f"   Diferencia máxima en {{R}}: {max_diff_R:.2e} ({'✓ OK' if max_diff_R <= TOLERANCIA else '✗ ERROR'})")
+        # Comparar [K] y {R}
+        K_pc = np.array(sol_pc["K"])
+        K_web = np.array(sol_web["K"])
+        max_d_K = np.max(np.abs(K_pc - K_web))
 
-    print("\n" + "=" * 80)
-    if not errores:
-        print(f"RESULTADO FINAL: ✓ ÉXITO TOTAL")
-        print(f"Todos los valores de {{D}} y {{q}} coinciden con tolerancia {TOLERANCIA}.")
-        print(f"Diferencia máxima detectada en todo el cálculo: {max_error_global:.2e}")
-        print("=" * 80)
+        R_pc = np.array(sol_pc["R"])
+        R_web = np.array(sol_web["R"])
+        max_d_R = np.max(np.abs(R_pc - R_web))
+
+        max_ejemplo = max(max_d_D, max_d_q, max_d_K, max_d_R)
+        max_global = max(max_global, max_ejemplo)
+
+        ok = max_ejemplo <= TOLERANCIA
+        estado = "✓ COINCIDE" if ok else "✗ DIFERENCIA"
+        if not ok:
+            discrepancias.append(f"{nombre}: max diff = {max_ejemplo:.2e} > {TOLERANCIA}")
+
+        print(f"{idx:<3} {nombre:<36} {max_d_D:<15.2e} {max_d_q:<15.2e} {estado}")
+
+    print("=" * 86)
+    if not discrepancias:
+        print(f"RESULTADO: ✓ TODOS LOS {len(soluciones_pc)} EJEMPLOS COINCIDEN CON LA PC.")
+        print(f"Tolerancia exigida: {TOLERANCIA} | Diferencia máxima global: {max_global:.2e}")
+        print("=" * 86)
         sys.exit(0)
     else:
-        print(f"RESULTADO FINAL: ✗ DISCREPANCIAS DETECTADAS")
-        for e in errores:
-            print(f" - {e}")
-        print("=" * 80)
+        print(f"RESULTADO: ✗ DISCREPANCIAS DETECTADAS EN {len(discrepancias)} EJEMPLO(S):")
+        for d in discrepancias:
+            print(f"  - {d}")
+        print("=" * 86)
         sys.exit(1)
 
 
