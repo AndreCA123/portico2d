@@ -145,7 +145,7 @@ def fila(*partes):
 
 
 def paso(n, titulo):
-    return f'<h3 style="color:{AZUL}"><font color="{ROJO}">Paso {n}</font> · {titulo}</h3>'
+    return f'<h3 style="color:{AZUL}"><span class="paso-num" style="white-space:nowrap;color:{ROJO}">Paso&nbsp;{n}</span> · {titulo}</h3>'
 
 
 def html_pasos(res: Resultado, imagen_modelo: str | None = None, pdf: bool = False,
@@ -215,7 +215,7 @@ def _html_pasos(res, imagen_modelo, pdf):
     h.append("<p>{d} = [" + ", ".join(res.barras[0].filas) + "]" +
              (" (sin axial por EA = ∞)" if m.ea_infinito else "") + "</p>")
     figs = _MODO.get("figs") or {}
-    ancho = 520 if pdf else 640
+    ancho = 400 if pdf else 640
     if figs.get("numeracion"):
         h.append(f'<p align="center"><img src="{figs["numeracion"]}" width="{ancho}"></p>')
     h.append(paso(6, "Matrices [A]   ({d} = [A]{D})"))
@@ -223,7 +223,7 @@ def _html_pasos(res, imagen_modelo, pdf):
         h.append("<p>Configuraciones deformadas vinculadas a cada GDL global (D<sub>j</sub> = 1 y los demás = 0):</p>")
         cfg = figs["configuraciones"]
         w = 300 if pdf else 380
-        t = '<table align="center" cellspacing="4">'
+        t = '<table class="tabla-configuraciones" align="center" cellspacing="4">'
         for k in range(0, len(cfg), 2):
             t += "<tr>" + "".join(f'<td><img src="{u}" width="{w}"></td>' for u in cfg[k:k + 2]) + "</tr>"
         h.append(t + "</table>")
@@ -305,8 +305,8 @@ def _html_pasos(res, imagen_modelo, pdf):
             h.append(fila("{d} =", mat(rb.d, 6, rb.filas), "{q}c = [k]{d} =", mat(rb.qc, 3)))
             h.append(fila("{q} = {q}c + {r} =", mat(rb.qc, 3), "+", mat(rb.r, 3), "=", mat(rb.q, 2)))
         else:
-            h.append(fila("{d} =", mat(rb.d, 6, rb.filas), "{q}c =", mat(rb.qc, 3), "+", mat(rb.r, 3),
-                          "= <b>{q}</b> =", mat(rb.q, 2)))
+            h.append(fila("{d} =", mat(rb.d, 6, rb.filas)))
+            h.append(fila("<b>{q}c =</b>", mat(rb.qc, 3), "+", mat(rb.r, 3), "= <b>{q}</b> =", mat(rb.q, 2)))
     # resumen
     h.append(f'<h3 style="color:{AZUL}">Resumen</h3>')
     t = ('<table border="1" cellspacing="0" cellpadding="3"><tr><th>Barra</th><th>N (t)</th>'
@@ -317,7 +317,10 @@ def _html_pasos(res, imagen_modelo, pdf):
               f"<td>{_num(rb.q6[4], 2)}</td><td>{_num(rb.q6[5], 2)}</td>"
               f"<td>{_num(M.max(), 2)} (x={xs[M.argmax()]:.2f})</td><td>{_num(M.min(), 2)} (x={xs[M.argmin()]:.2f})</td></tr>")
     t += "</table>"
-    h.append(t)
+    if _MODO.get("katex"):
+        h.append('<div class="table-responsive">' + t + '</div>')
+    else:
+        h.append(t)
     h.append("<p><i>q = fuerzas en extremos (ejes locales). En los diagramas M(x) = −M_i + V_i·x − cargas; "
              "M &gt; 0 tracciona la cara −y local. N &lt; 0 = compresión"
              + (" (con EA = ∞, N sale del equilibrio)." if m.ea_infinito else ".")
@@ -326,11 +329,13 @@ def _html_pasos(res, imagen_modelo, pdf):
     t = '<table border="1" cellspacing="0" cellpadding="3"><tr><th>Apoyo</th><th>Rx (t)</th><th>Ry (t)</th><th>M (t·m)</th></tr>'
     for nid, (rx, ry, mz) in res.reacciones.items():
         t += f"<tr><td>Nudo {nid}</td><td>{_num(rx, 2)}</td><td>{_num(ry, 2)}</td><td>{_num(mz, 2)}</td></tr>"
-    h.append("<p><b>Reacciones</b></p>" + t + "</table>")
+    t += "</table>"
+    h.append("<p><b>Reacciones</b></p>" + (f'<div class="table-responsive">{t}</div>' if _MODO.get("katex") else t))
     t = '<table border="1" cellspacing="0" cellpadding="3"><tr><th>Nudo</th><th>u (m)</th><th>v (m)</th><th>θ (rad)</th></tr>'
     for nid, (ux, uy, th) in res.u_nudos.items():
         t += f"<tr><td>{nid}</td><td>{_num(ux, 6)}</td><td>{_num(uy, 6)}</td><td>{_num(th, 6)}</td></tr>"
-    h.append("<p><b>Desplazamientos de nudos</b></p>" + t + "</table>")
+    t += "</table>"
+    h.append("<p><b>Desplazamientos de nudos</b></p>" + (f'<div class="table-responsive">{t}</div>' if _MODO.get("katex") else t))
     for a in res.avisos:
         h.append(f'<p><font color="{ROJO}">{a}</font></p>')
     return "\n".join(h)

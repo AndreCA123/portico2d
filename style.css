@@ -532,6 +532,10 @@ input.tbl-input:focus, select.tbl-input:focus {
    Hito 3: Pestaña Pasos (1–14) de informe.py con scroll horizontal para matrices
    ============================================================================== */
 .pasos-container {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
   background: var(--bg-card);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);
@@ -554,8 +558,14 @@ input.tbl-input:focus, select.tbl-input:focus {
   font-size: 1rem;
   margin: 1.25rem 0 0.5rem 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
+}
+
+.pasos-container h3 .paso-num,
+.pasos-container h3 font {
+  white-space: nowrap !important;
 }
 
 .pasos-container p, .pasos-container li {
@@ -571,6 +581,90 @@ input.tbl-input:focus, select.tbl-input:focus {
 
 .pasos-container b {
   color: var(--text-primary);
+}
+
+/* Figuras del método adaptadas al tema oscuro (centradas, redondeadas, zoom táctil) */
+.pasos-container img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 0.75rem auto;
+  border-radius: 8px;
+  filter: invert(1) hue-rotate(180deg);
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pasos-container img:hover {
+  transform: scale(1.01);
+  box-shadow: 0 6px 18px rgba(56, 189, 248, 0.25);
+}
+
+.pasos-container p[align="center"] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 0.75rem 0;
+}
+
+/* Configuraciones Dj = 1: 1 columna en celular y 2 en pantallas anchas */
+.pasos-container table.tabla-configuraciones,
+.pasos-container table:has(img) {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0.5rem !important;
+  border: none !important;
+  background: transparent !important;
+  margin: 0.75rem auto !important;
+}
+
+.pasos-container table.tabla-configuraciones td,
+.pasos-container table:has(img) td {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  text-align: center !important;
+}
+
+@media (max-width: 640px) {
+  .pasos-container table.tabla-configuraciones,
+  .pasos-container table:has(img),
+  .pasos-container table.tabla-configuraciones tbody,
+  .pasos-container table:has(img) tbody,
+  .pasos-container table.tabla-configuraciones tr,
+  .pasos-container table:has(img) tr,
+  .pasos-container table.tabla-configuraciones td,
+  .pasos-container table:has(img) td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .pasos-container table.tabla-configuraciones td,
+  .pasos-container table:has(img) td {
+    margin-bottom: 0.75rem !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .pasos-container table.tabla-configuraciones,
+  .pasos-container table:has(img) {
+    display: table !important;
+  }
+  .pasos-container table.tabla-configuraciones tr,
+  .pasos-container table:has(img) tr {
+    display: table-row !important;
+  }
+  .pasos-container table.tabla-configuraciones td,
+  .pasos-container table:has(img) td {
+    display: table-cell !important;
+    width: 50% !important;
+  }
 }
 
 /* Matrices con corchetes en informe.py */
@@ -589,53 +683,95 @@ input.tbl-input:focus, select.tbl-input:focus {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Soporte KaTeX y tablas formateadas en informe */
+/* Soporte KaTeX, matrices y tablas con scroll horizontal propio y sombra indicadora */
+.pasos-container .table-responsive,
+.pasos-container .mrow {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.75rem 0;
+  padding-bottom: 0.4rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.4) transparent;
+  /* Sombras indicadoras en bordes (aparecen cuando hay contenido oculto) */
+  background-image:
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.5), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(56, 189, 248, 0.35), transparent),
+    linear-gradient(to right, #111827 30%, rgba(17, 24, 39, 0)),
+    linear-gradient(to left, #111827 30%, rgba(17, 24, 39, 0));
+  background-repeat: no-repeat;
+  background-size: 14px 100%, 14px 100%, 30px 100%, 30px 100%;
+  background-position: 0 0, 100% 0, 0 0, 100% 0;
+  background-attachment: local, local, scroll, scroll;
+}
+
 .pasos-container .mrow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 1.25rem;
-  margin: 0.75rem 0;
-  overflow-x: auto;
-  padding-bottom: 0.35rem;
-  -webkit-overflow-scrolling: touch;
+  gap: 0.85rem;
 }
 
 .pasos-container .mi {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .pasos-container .katex-math {
   display: inline-block;
-  font-size: 1.02rem;
+  font-size: 1rem;
 }
 
-.pasos-container table {
+.pasos-container table:not(.tabla-configuraciones) {
   width: 100%;
   max-width: 100%;
   border-collapse: collapse;
-  margin: 0.75rem 0;
+  margin: 0.5rem 0;
   font-family: var(--font-mono);
   font-size: 0.85rem;
 }
 
-.pasos-container table th,
-.pasos-container table td {
+.pasos-container table:not(.tabla-configuraciones) th,
+.pasos-container table:not(.tabla-configuraciones) td {
   padding: 0.45rem 0.75rem;
   text-align: left;
   border: 1px solid var(--border-subtle);
   white-space: nowrap;
 }
 
-.pasos-container table th {
+.pasos-container table:not(.tabla-configuraciones) th {
   background: rgba(15, 23, 42, 0.6);
   color: var(--accent-cyan);
   font-weight: 600;
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/* En celular: reducir hasta un 85% para que matrices ([A]2, [K]2, [K]^-1) quepan directamente sin scroll */
+@media (max-width: 640px) {
+  .pasos-container {
+    padding: 0.85rem 0.6rem;
+    border-radius: 10px;
+  }
+  .pasos-container .mrow {
+    gap: 0.5rem;
+  }
+  .pasos-container .katex {
+    font-size: 0.85em; /* 85% */
+  }
+  .pasos-container table:not(.tabla-configuraciones) {
+    font-size: 0.72rem; /* 85% */
+  }
+  .pasos-container table:not(.tabla-configuraciones) th,
+  .pasos-container table:not(.tabla-configuraciones) td {
+    padding: 0.3rem 0.45rem;
+  }
 }
 
 /* ==============================================================================
@@ -822,7 +958,7 @@ body.ea-infinito .col-ea {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 15mm;
+    margin: 10mm 12mm;
   }
 
   *, *::before, *::after {
@@ -842,8 +978,8 @@ body.ea-infinito .col-ea {
     margin: 0 !important;
     min-height: auto !important;
     height: auto !important;
-    font-size: 8.5pt !important;
-    line-height: 1.35 !important;
+    font-size: 8pt !important;
+    line-height: 1.3 !important;
   }
 
   .container {
@@ -860,6 +996,9 @@ body.ea-infinito .col-ea {
   .matrix-container {
     overflow: visible !important;
     overflow-x: visible !important;
+    background: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
   }
 
   /* Ocultar elementos de interfaz interactiva */
@@ -882,37 +1021,41 @@ body.ea-infinito .col-ea {
     background: transparent !important;
     color: #111827 !important;
     padding: 0 !important;
-    font-size: 8.5pt !important;
+    font-size: 8pt !important;
     font-weight: 500 !important;
     appearance: none !important;
     -webkit-appearance: none !important;
   }
 
+  .modal-visor {
+    display: none !important;
+  }
+
   /* Encabezado limpio de impresión */
   .print-header {
     display: block !important;
-    border-bottom: 2pt solid #1d2b53;
-    padding-bottom: 6pt;
-    margin-bottom: 12pt;
+    border-bottom: 1.5pt solid #1d2b53;
+    padding-bottom: 2pt !important;
+    margin-bottom: 4pt !important;
     break-after: avoid;
     page-break-after: avoid;
   }
 
   .print-header h1 {
-    font-size: 15pt !important;
+    font-size: 12pt !important;
     color: #1d2b53 !important;
-    margin-bottom: 2pt !important;
+    margin-bottom: 1pt !important;
   }
 
   .print-header p {
-    font-size: 8.5pt !important;
+    font-size: 7.2pt !important;
     color: #4b5563 !important;
   }
 
   /* Desplegar todas las secciones en su orden natural: Datos -> Resultados -> Diagramas -> Pasos */
   .tab-content:not(#tab-diagramas) {
     display: block !important;
-    margin-bottom: 12pt !important;
+    margin-bottom: 3.5pt !important;
   }
   #tab-diagramas {
     display: none !important;
@@ -920,23 +1063,23 @@ body.ea-infinito .col-ea {
 
   .card {
     background: #ffffff !important;
-    border: 0.8pt solid #d1d5db !important;
-    border-radius: 4pt !important;
-    padding: 7pt !important;
-    margin-bottom: 10pt !important;
+    border: 0.6pt solid #d1d5db !important;
+    border-radius: 3pt !important;
+    padding: 3.5pt 5.5pt !important;
+    margin-bottom: 3.5pt !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   .card-header {
-    border-bottom: 0.8pt solid #e5e7eb !important;
-    margin-bottom: 6pt !important;
-    padding-bottom: 4pt !important;
+    border-bottom: 0.6pt solid #e5e7eb !important;
+    margin-bottom: 2pt !important;
+    padding-bottom: 1.5pt !important;
   }
 
   .card-title {
     color: #1d2b53 !important;
-    font-size: 9.5pt !important;
+    font-size: 8pt !important;
   }
 
   /* El bug de grid en Chromium print: forzar block para eliminar páginas en blanco */
@@ -946,7 +1089,8 @@ body.ea-infinito .col-ea {
 
   .results-grid > .card {
     width: 100% !important;
-    margin-bottom: 10pt !important;
+    padding: 3.5pt 5.5pt !important;
+    margin-bottom: 3.5pt !important;
   }
 
   /* Ocultar emojis en títulos para impresión técnica limpia */
@@ -966,25 +1110,25 @@ body.ea-infinito .col-ea {
 
   /* Tablas compactas según contenido */
   table.editor-table {
-    border: 0.8pt solid #d1d5db !important;
+    border: 0.6pt solid #d1d5db !important;
     width: auto !important;
     max-width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 8pt !important;
-    margin-bottom: 4pt !important;
+    font-size: 7pt !important;
+    margin-bottom: 2pt !important;
   }
 
   table.editor-table th {
     background: #f3f4f6 !important;
     color: #111827 !important;
-    border: 0.8pt solid #d1d5db !important;
-    padding: 3pt 6pt !important;
+    border: 0.6pt solid #d1d5db !important;
+    padding: 1.8pt 4pt !important;
   }
 
   table.editor-table td {
-    border: 0.8pt solid #e5e7eb !important;
+    border: 0.6pt solid #e5e7eb !important;
     color: #111827 !important;
-    padding: 3pt 6pt !important;
+    padding: 1.8pt 4pt !important;
   }
 
   .mono-num {
@@ -997,7 +1141,7 @@ body.ea-infinito .col-ea {
     display: none !important;
   }
 
-  /* Grid de diagramas en PDF: TODOS los 6 diagramas, 2 por página, a ancho completo */
+  /* Grid de diagramas en PDF: Salto de página antes de Diagramas (2 por página) */
   .print-diagramas-grid {
     display: block !important;
     width: 100% !important;
@@ -1007,13 +1151,13 @@ body.ea-infinito .col-ea {
 
   .print-diagrama-item {
     width: 100% !important;
-    height: 310pt !important;
+    height: 295pt !important;
     box-sizing: border-box !important;
     background: #ffffff !important;
     border: 0.8pt solid #d1d5db !important;
     border-radius: 4pt !important;
     padding: 6pt 10pt !important;
-    margin-bottom: 14pt !important;
+    margin-bottom: 12pt !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
     display: flex !important;
@@ -1021,121 +1165,233 @@ body.ea-infinito .col-ea {
   }
 
   .print-diagrama-titulo {
-    font-size: 10pt !important;
+    font-size: 9.5pt !important;
     font-weight: 700 !important;
     color: #1d2b53 !important;
     border-bottom: 0.8pt solid #e5e7eb !important;
-    padding-bottom: 3pt !important;
-    margin-bottom: 4pt !important;
+    padding-bottom: 2pt !important;
+    margin-bottom: 3pt !important;
   }
 
   .print-diagrama-item .diagrama-svg {
     flex: 1 !important;
     width: 100% !important;
-    height: calc(100% - 18pt) !important;
+    height: calc(100% - 16pt) !important;
   }
 
-  /* Exactamente 2 diagramas por página */
-  .print-diagrama-item:nth-child(2n) {
+  /* Exactamente 2 diagramas por página, excepto el último (para no provocar salto doble antes de Pasos) */
+  .print-diagrama-item:nth-child(2n):not(:last-child) {
     break-after: page !important;
     page-break-after: always !important;
     margin-bottom: 0 !important;
   }
 
-  /* Pasos 1–14 en impresión */
+  /* Pasos 1–14 en impresión: Salto de página antes de Pasos */
   .pasos-container {
     background: #ffffff !important;
     border: none !important;
     padding: 0 !important;
-    break-before: page;
-    page-break-before: always;
+    break-before: page !important;
+    page-break-before: always !important;
   }
 
   .pasos-container h2 {
     color: #1d2b53 !important;
-    font-size: 13pt !important;
+    font-size: 12pt !important;
     border-bottom: 1.5pt solid #1d2b53 !important;
-    padding-bottom: 4pt !important;
-    margin: 10pt 0 6pt 0 !important;
+    padding-bottom: 3pt !important;
+    margin: 8pt 0 5pt 0 !important;
     break-after: avoid;
     page-break-after: avoid;
   }
 
   .pasos-container h3 {
     color: #0369a1 !important;
-    font-size: 10pt !important;
-    margin: 10pt 0 4pt 0 !important;
+    font-size: 9.5pt !important;
+    margin: 8pt 0 3pt 0 !important;
     break-after: avoid;
     page-break-after: avoid;
   }
 
   .pasos-container p, .pasos-container li {
     color: #1f2937 !important;
-    font-size: 8.5pt !important;
+    font-size: 8pt !important;
+    margin-bottom: 3pt !important;
   }
 
   .pasos-container table {
     width: auto !important;
     max-width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 8pt !important;
-    margin: 6pt 0 !important;
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+    font-size: 7.5pt !important;
+    margin: 4pt 0 !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   .pasos-container table th {
     background: #f3f4f6 !important;
     color: #111827 !important;
     border: 0.8pt solid #d1d5db !important;
-    padding: 3pt 6pt !important;
+    padding: 2.5pt 5pt !important;
   }
 
   .pasos-container table td {
     border: 0.8pt solid #e5e7eb !important;
     color: #111827 !important;
-    padding: 3pt 6pt !important;
+    padding: 2.5pt 5pt !important;
   }
 
   .pasos-container .mrow {
     display: flex !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 8pt !important;
-    margin: 6pt 0 !important;
+    gap: 6pt !important;
+    margin: 4pt 0 !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+    background: none !important;
+    padding-bottom: 0 !important;
   }
 
   .pasos-container pre {
     background: #f9fafb !important;
     color: #111827 !important;
     border: 0.8pt solid #d1d5db !important;
-    font-size: 8pt !important;
+    font-size: 7.5pt !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  /* No cortar imágenes entre páginas */
+  /* Figuras en impresión: fondo blanco original, sin filtro ni borde, tamaño proporcional para no vaciar páginas */
   .pasos-container img {
-    max-width: 100% !important;
+    filter: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    cursor: default !important;
+    transform: none !important;
+    max-width: 85% !important;
+    max-height: 190pt !important;
+    width: auto !important;
     height: auto !important;
+    object-fit: contain !important;
+    margin: 3pt auto !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
-  /* Matrices de los pasos legibles: mínimo 9.5 pt */
+  /* Matrices de los pasos legibles */
   .pasos-container .katex {
-    font-size: 9.5pt !important;
+    font-size: 9pt !important;
     color: #0f172a !important;
   }
 
   .pasos-container .katex-display {
-    font-size: 9.5pt !important;
-    margin: 4pt 0 !important;
+    font-size: 9pt !important;
+    margin: 3pt 0 !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
+}
+
+/* Modal visor de figuras a pantalla completa con zoom */
+.modal-visor {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-visor-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 7, 15, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.modal-visor-dialog {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.modal-visor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: rgba(15, 23, 42, 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+.modal-visor-titulo {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+
+.modal-visor-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-visor {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-visor:hover {
+  background: #334155;
+  border-color: var(--accent-cyan);
+}
+
+.btn-visor.modal-visor-close {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.4);
+  font-weight: 700;
+  margin-left: 0.5rem;
+}
+
+.modal-visor-viewport {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+.modal-visor-viewport img {
+  max-width: 95%;
+  max-height: 88vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  filter: invert(1) hue-rotate(180deg);
+  background: #000;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+  transition: transform 0.15s ease-out;
+  transform-origin: center center;
 }
 
 .print-header {

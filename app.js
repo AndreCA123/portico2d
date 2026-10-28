@@ -1008,7 +1008,67 @@ function renderizarResultados(res, tiempoMs) {
   elMatrizK.innerHTML = htmlK;
 }
 
-// ----------------------------------------------------------- Hito 3: Renderizar Pasos (informe.py con KaTeX)
+// ----------------------------------------------------------- Hito 3: Renderizar Pasos (informe.py con KaTeX) y Visor de Figuras
+let escalaVisor = 1.0;
+const modalVisor = document.getElementById('modal-visor-figura');
+const visorImg = document.getElementById('visor-img');
+const btnVisorClose = document.getElementById('btn-visor-close');
+const btnVisorZoomIn = document.getElementById('btn-visor-zoom-in');
+const btnVisorZoomOut = document.getElementById('btn-visor-zoom-out');
+const btnVisorReset = document.getElementById('btn-visor-reset');
+const visorBackdrop = document.getElementById('visor-backdrop');
+const visorViewport = document.getElementById('visor-viewport');
+
+function aplicarEscalaVisor(escala) {
+  escalaVisor = Math.max(0.5, Math.min(4.0, escala));
+  if (visorImg) {
+    visorImg.style.transform = `scale(${escalaVisor})`;
+  }
+  if (btnVisorReset) {
+    btnVisorReset.textContent = `${Math.round(escalaVisor * 100)}%`;
+  }
+}
+
+function abrirVisorFigura(src, alt) {
+  if (!modalVisor || !visorImg) return;
+  visorImg.src = src;
+  visorImg.alt = alt || "Figura ampliada";
+  aplicarEscalaVisor(1.0);
+  modalVisor.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function cerrarVisorFigura() {
+  if (!modalVisor) return;
+  modalVisor.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+btnVisorClose?.addEventListener('click', cerrarVisorFigura);
+visorBackdrop?.addEventListener('click', cerrarVisorFigura);
+btnVisorZoomIn?.addEventListener('click', () => aplicarEscalaVisor(escalaVisor * 1.25));
+btnVisorZoomOut?.addEventListener('click', () => aplicarEscalaVisor(escalaVisor / 1.25));
+btnVisorReset?.addEventListener('click', () => aplicarEscalaVisor(1.0));
+
+visorImg?.addEventListener('dblclick', (e) => {
+  e.preventDefault();
+  aplicarEscalaVisor(escalaVisor > 1.2 ? 1.0 : 2.0);
+});
+
+visorViewport?.addEventListener('wheel', (e) => {
+  if (modalVisor && modalVisor.style.display !== 'none') {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.85;
+    aplicarEscalaVisor(escalaVisor * factor);
+  }
+}, { passive: false });
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalVisor && modalVisor.style.display !== 'none') {
+    cerrarVisorFigura();
+  }
+});
+
 function renderizarPasos(html) {
   if (!pasosContenedor) return;
   if (!html) {
@@ -1016,6 +1076,28 @@ function renderizarPasos(html) {
     return;
   }
   pasosContenedor.innerHTML = html;
+
+  // Envolver tablas que no sean de configuraciones en .table-responsive si no lo están
+  pasosContenedor.querySelectorAll('table').forEach(tbl => {
+    if (tbl.querySelector('img')) {
+      tbl.classList.add('tabla-configuraciones');
+    } else if (!tbl.parentElement.classList.contains('table-responsive')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'table-responsive';
+      tbl.parentNode.insertBefore(wrap, tbl);
+      wrap.appendChild(tbl);
+    }
+  });
+
+  // Habilitar clic en figuras para abrir visor a pantalla completa
+  pasosContenedor.querySelectorAll('img').forEach(img => {
+    img.style.cursor = 'zoom-in';
+    img.setAttribute('title', 'Tocar para ampliar a pantalla completa con zoom');
+    img.addEventListener('click', () => {
+      abrirVisorFigura(img.src, img.alt);
+    });
+  });
+
   // Renderizar fórmulas KaTeX offline
   if (window.katex) {
     pasosContenedor.querySelectorAll('.katex-math').forEach(elem => {

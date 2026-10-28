@@ -394,6 +394,25 @@
       </button>
     </div>
 
+    <!-- Modal visor de figura a pantalla completa con zoom (Hito Pasos móvil) -->
+    <div id="modal-visor-figura" class="modal-visor" style="display: none;" role="dialog" aria-modal="true" aria-label="Visor de figura">
+      <div class="modal-visor-backdrop" id="visor-backdrop"></div>
+      <div class="modal-visor-dialog">
+        <div class="modal-visor-bar">
+          <span class="modal-visor-titulo">Figura del método</span>
+          <div class="modal-visor-controls">
+            <button type="button" class="btn-visor" id="btn-visor-zoom-out" title="Reducir (−)">−</button>
+            <button type="button" class="btn-visor" id="btn-visor-reset" title="Restablecer (100%)">100%</button>
+            <button type="button" class="btn-visor" id="btn-visor-zoom-in" title="Aumentar (+)">+</button>
+            <button type="button" class="btn-visor modal-visor-close" id="btn-visor-close" title="Cerrar (Esc)">✕</button>
+          </div>
+        </div>
+        <div class="modal-visor-viewport" id="visor-viewport">
+          <img id="visor-img" src="" alt="Figura ampliada">
+        </div>
+      </div>
+    </div>
+
     <footer>
       Pórtico 2D · UNSA 2026-B · Fase 1 (Hitos 1–4: Entrada, Resultados, Diagramas y Pasos)
     </footer>
