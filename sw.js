@@ -107,10 +107,13 @@ self.addEventListener('fetch', event => {
           });
         }
         return response;
-      }).catch(err => {
-        // Si no hay red y se navega a una página HTML, devolver index.html
+      }).catch(async err => {
+        // Si no hay red y se navega a una página HTML, devolver index.html o scope
         if (req.mode === 'navigate') {
-          return caches.match('./index.html');
+          const matchIndex = (await caches.match('./index.html')) || 
+                             (await caches.match('./')) || 
+                             (await caches.match(self.registration.scope));
+          if (matchIndex) return matchIndex;
         }
         throw err;
       });
