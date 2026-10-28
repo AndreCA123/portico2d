@@ -1618,7 +1618,9 @@ function renderizarTodosLosDiagramasParaImprimir() {
   lista.forEach(item => {
     const div = document.createElement('div');
     div.className = 'print-diagrama-item';
-    const svgInterno = generarSvgDiagrama(item.tipo, 800, 420, true, true, true);
+    // En PDF: cargas SOLO en Modelo; en los demás solo diagrama y valores
+    const conCargasPdf = (item.tipo === 'modelo');
+    const svgInterno = generarSvgDiagrama(item.tipo, 800, 420, true, conCargasPdf, true);
     div.innerHTML = `
       <div class="print-diagrama-titulo">
         <strong>${item.titulo}</strong>
@@ -1765,3 +1767,15 @@ btnResolver.addEventListener('click', () => resolver(true));
 
 // Iniciar al cargar el DOM
 window.addEventListener('DOMContentLoaded', inicializarPyodide);
+
+// Registro de Service Worker para PWA y soporte offline real
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Pórtico 2D SW registrado con éxito:', reg.scope);
+    }).catch(err => {
+      console.warn('Fallo al registrar SW:', err);
+    });
+  });
+}
+
