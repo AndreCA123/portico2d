@@ -589,24 +589,152 @@ input.tbl-input:focus, select.tbl-input:focus {
   -webkit-overflow-scrolling: touch;
 }
 
-.pasos-container table {
+/* Soporte KaTeX y tablas formateadas en informe */
+.pasos-container .mrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0.75rem 0;
   overflow-x: auto;
-  display: block;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pasos-container .mi {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.pasos-container .katex-math {
+  display: inline-block;
+  font-size: 1.02rem;
+}
+
+.pasos-container table {
+  width: 100%;
   max-width: 100%;
-  margin: 0.5rem 0;
   border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.pasos-container table th,
+.pasos-container table td {
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.pasos-container table th {
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--accent-cyan);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 /* ==============================================================================
-   Hito 4: Pestaña Diagramas con Zoom de dos dedos y Touch Pan
+   Hito 4: Pestaña Diagramas con Zoom de dos dedos, Cargas completas e Interruptores
    ============================================================================== */
 .selector-diagrama-bar {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
   overflow-x: auto;
-  padding-bottom: 0.4rem;
-  margin-bottom: 0.75rem;
-  scrollbar-width: none;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.6rem;
+  scrollbar-width: thin;
+  width: 100%;
+}
+
+.diag-bottom-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding: 0.25rem 0.2rem;
+}
+
+.diag-toggles-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diagrama-info-badge {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+}
+
+.aviso-figuras {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--accent-cyan);
+}
+
+.spinner-inline {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(56, 189, 248, 0.2);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.print-diagramas-grid {
+  display: none;
+}
+
+body.ea-infinito .col-ea {
+  display: none;
+}
+
+.toggle-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.toggle-control:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.toggle-control input[type="checkbox"] {
+  accent-color: var(--accent-cyan);
+  cursor: pointer;
 }
 
 .diag-btn {
@@ -686,100 +814,177 @@ input.tbl-input:focus, select.tbl-input:focus {
   background: #334155;
 }
 
-.diagrama-info-badge {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
-  padding: 0.3rem 0.65rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  pointer-events: none;
-}
-
 /* ==============================================================================
    Vista de Impresión / Guardar como PDF (@media print)
+   Requerimientos 7, 8 y 9: A4, márgenes 15mm, tema claro, sin páginas en blanco
+   Orden estricto: Datos -> Resultados -> Diagramas -> Pasos 1–14
    ============================================================================== */
 @media print {
   @page {
-    margin: 12mm 15mm;
     size: A4 portrait;
+    margin: 15mm;
   }
 
-  body {
-    background: white !important;
+  *, *::before, *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
     background-image: none !important;
     color: #111827 !important;
     padding: 0 !important;
-    font-size: 9pt !important;
+    margin: 0 !important;
+    min-height: auto !important;
+    height: auto !important;
+    font-size: 8.5pt !important;
+    line-height: 1.35 !important;
+  }
+
+  .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .table-responsive,
+  .pasos-container,
+  .pasos-container .mrow,
+  .pasos-container pre,
+  .matrix-container {
+    overflow: visible !important;
+    overflow-x: visible !important;
   }
 
   /* Ocultar elementos de interfaz interactiva */
   header, .top-toolbar, .nav-tabs, .mobile-action-bar, .status-indicator,
-  .btn, .btn-sm, .btn-icon-danger, .diagrama-toolbar, .selector-diagrama-bar,
-  footer, #tiempo-calc {
+  .btn, .btn-sm, .btn-icon-danger, .diagrama-toolbar, .diag-header-row,
+  .selector-diagrama-bar, .diag-bottom-bar, .diag-toggles-bar, footer,
+  #tiempo-calc, .diagrama-info-badge, #tab-diagramas, .tab-content#tab-diagramas {
     display: none !important;
   }
 
-  /* Mostrar encabezado exclusivo de impresión */
+  /* Ocultar la columna de acciones en tablas de edición */
+  table.editor-table th:last-child,
+  table.editor-table td:last-child {
+    display: none !important;
+  }
+
+  /* Inputs de tablas convertidos en texto plano legible */
+  input.tbl-input, select.tbl-input {
+    border: none !important;
+    background: transparent !important;
+    color: #111827 !important;
+    padding: 0 !important;
+    font-size: 8.5pt !important;
+    font-weight: 500 !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+  }
+
+  /* Encabezado limpio de impresión */
   .print-header {
     display: block !important;
     border-bottom: 2pt solid #1d2b53;
-    padding-bottom: 8pt;
+    padding-bottom: 6pt;
     margin-bottom: 12pt;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .print-header h1 {
-    font-size: 16pt;
-    color: #1d2b53;
-    margin-bottom: 3pt;
+    font-size: 15pt !important;
+    color: #1d2b53 !important;
+    margin-bottom: 2pt !important;
   }
 
   .print-header p {
-    font-size: 9pt;
-    color: #4b5563;
+    font-size: 8.5pt !important;
+    color: #4b5563 !important;
   }
 
-  /* Desplegar todas las pestañas para el informe impreso */
-  .tab-content {
+  /* Desplegar todas las secciones en su orden natural: Datos -> Resultados -> Diagramas -> Pasos */
+  .tab-content:not(#tab-diagramas) {
     display: block !important;
-    margin-bottom: 16pt;
+    margin-bottom: 12pt !important;
+  }
+  #tab-diagramas {
+    display: none !important;
   }
 
   .card {
-    background: white !important;
-    border: 1pt solid #d1d5db !important;
+    background: #ffffff !important;
+    border: 0.8pt solid #d1d5db !important;
     border-radius: 4pt !important;
-    padding: 8pt !important;
+    padding: 7pt !important;
     margin-bottom: 10pt !important;
     break-inside: avoid;
     page-break-inside: avoid;
-    box-shadow: none !important;
+  }
+
+  .card-header {
+    border-bottom: 0.8pt solid #e5e7eb !important;
+    margin-bottom: 6pt !important;
+    padding-bottom: 4pt !important;
   }
 
   .card-title {
     color: #1d2b53 !important;
-    font-size: 10pt !important;
-    border-bottom: 1pt solid #e5e7eb !important;
+    font-size: 9.5pt !important;
   }
 
+  /* El bug de grid en Chromium print: forzar block para eliminar páginas en blanco */
+  .results-grid {
+    display: block !important;
+  }
+
+  .results-grid > .card {
+    width: 100% !important;
+    margin-bottom: 10pt !important;
+  }
+
+  /* Ocultar emojis en títulos para impresión técnica limpia */
+  .emoji-icon {
+    display: none !important;
+  }
+
+  /* Ocultar tarjetas de cargas sin datos */
+  .sin-datos-print {
+    display: none !important;
+  }
+
+  /* Ocultar columna EA si EA es infinito */
+  body.ea-infinito .col-ea {
+    display: none !important;
+  }
+
+  /* Tablas compactas según contenido */
   table.editor-table {
-    border: 1pt solid #d1d5db;
-    font-size: 8.5pt !important;
+    border: 0.8pt solid #d1d5db !important;
+    width: auto !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 8pt !important;
+    margin-bottom: 4pt !important;
   }
 
   table.editor-table th {
     background: #f3f4f6 !important;
     color: #111827 !important;
-    border: 1pt solid #d1d5db !important;
+    border: 0.8pt solid #d1d5db !important;
+    padding: 3pt 6pt !important;
   }
 
   table.editor-table td {
-    border: 1pt solid #e5e7eb !important;
+    border: 0.8pt solid #e5e7eb !important;
     color: #111827 !important;
+    padding: 3pt 6pt !important;
   }
 
   .mono-num {
@@ -787,39 +992,149 @@ input.tbl-input:focus, select.tbl-input:focus {
     font-weight: 600;
   }
 
+  /* Ocultar visor interactivo de pantalla en impresión */
+  #tab-diagramas {
+    display: none !important;
+  }
+
+  /* Grid de diagramas en PDF: TODOS los 6 diagramas, 2 por página, a ancho completo */
+  .print-diagramas-grid {
+    display: block !important;
+    width: 100% !important;
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .print-diagrama-item {
+    width: 100% !important;
+    height: 310pt !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 0.8pt solid #d1d5db !important;
+    border-radius: 4pt !important;
+    padding: 6pt 10pt !important;
+    margin-bottom: 14pt !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .print-diagrama-titulo {
+    font-size: 10pt !important;
+    font-weight: 700 !important;
+    color: #1d2b53 !important;
+    border-bottom: 0.8pt solid #e5e7eb !important;
+    padding-bottom: 3pt !important;
+    margin-bottom: 4pt !important;
+  }
+
+  .print-diagrama-item .diagrama-svg {
+    flex: 1 !important;
+    width: 100% !important;
+    height: calc(100% - 18pt) !important;
+  }
+
+  /* Exactamente 2 diagramas por página */
+  .print-diagrama-item:nth-child(2n) {
+    break-after: page !important;
+    page-break-after: always !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Pasos 1–14 en impresión */
   .pasos-container {
-    background: white !important;
-    border: 1pt solid #d1d5db !important;
-    color: #111827 !important;
+    background: #ffffff !important;
+    border: none !important;
+    padding: 0 !important;
+    break-before: page;
     page-break-before: always;
   }
 
-  .pasos-container h2, .pasos-container h3, .pasos-container b {
+  .pasos-container h2 {
     color: #1d2b53 !important;
+    font-size: 13pt !important;
+    border-bottom: 1.5pt solid #1d2b53 !important;
+    padding-bottom: 4pt !important;
+    margin: 10pt 0 6pt 0 !important;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .pasos-container h3 {
+    color: #0369a1 !important;
+    font-size: 10pt !important;
+    margin: 10pt 0 4pt 0 !important;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .pasos-container p, .pasos-container li {
-    color: #374151 !important;
+    color: #1f2937 !important;
+    font-size: 8.5pt !important;
+  }
+
+  .pasos-container table {
+    width: auto !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 8pt !important;
+    margin: 6pt 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .pasos-container table th {
+    background: #f3f4f6 !important;
+    color: #111827 !important;
+    border: 0.8pt solid #d1d5db !important;
+    padding: 3pt 6pt !important;
+  }
+
+  .pasos-container table td {
+    border: 0.8pt solid #e5e7eb !important;
+    color: #111827 !important;
+    padding: 3pt 6pt !important;
+  }
+
+  .pasos-container .mrow {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8pt !important;
+    margin: 6pt 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .pasos-container pre {
     background: #f9fafb !important;
     color: #111827 !important;
-    border: 1pt solid #d1d5db !important;
+    border: 0.8pt solid #d1d5db !important;
     font-size: 8pt !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
-  .diagrama-wrapper {
-    background: white !important;
-    border: 1pt solid #d1d5db !important;
-    height: 280pt !important;
-    page-break-inside: avoid;
+  /* No cortar imágenes entre páginas */
+  .pasos-container img {
+    max-width: 100% !important;
+    height: auto !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
-  .diagrama-info-badge {
-    color: #4b5563 !important;
-    background: #f3f4f6 !important;
-    border: 1pt solid #d1d5db !important;
+  /* Matrices de los pasos legibles: mínimo 9.5 pt */
+  .pasos-container .katex {
+    font-size: 9.5pt !important;
+    color: #0f172a !important;
+  }
+
+  .pasos-container .katex-display {
+    font-size: 9.5pt !important;
+    margin: 4pt 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }
 

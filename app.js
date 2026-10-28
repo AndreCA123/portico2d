@@ -5,6 +5,8 @@
 let pyodide = null;
 let ultimoResultado = null;
 let diagramaActual = "modelo";
+let figurasGeneradas = false;
+let matplotlibCargado = false;
 
 const APOYOS = [
   "libre",
@@ -98,7 +100,7 @@ function setStatus(tipo, texto) {
 
 // ----------------------------------------------------------- Pestañas Móviles
 document.querySelectorAll('.nav-tabs .tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
     document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
@@ -108,16 +110,57 @@ document.querySelectorAll('.nav-tabs .tab-btn').forEach(btn => {
 
     if (tabId === 'tab-diagramas' && ultimoResultado) {
       actualizarDiagrama();
+    } else if (tabId === 'tab-pasos' && ultimoResultado && !figurasGeneradas) {
+      await asegurarFigurasYPasos();
     }
   });
 });
 
-function activarPestanaResultados() {
+async function activarPestana(tabId) {
   document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  const btn = document.querySelector('.tab-btn[data-tab="tab-resultados"]');
+  const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
   if (btn) btn.classList.add('active');
-  document.getElementById('tab-resultados').classList.add('active');
+  const content = document.getElementById(tabId);
+  if (content) content.classList.add('active');
+  if (tabId === 'tab-diagramas' && ultimoResultado) {
+    actualizarDiagrama();
+  } else if (tabId === 'tab-pasos' && ultimoResultado && !figurasGeneradas) {
+    await asegurarFigurasYPasos();
+  }
+}
+
+function activarPestanaResultados() {
+  activarPestana('tab-resultados');
+}
+
+// ----------------------------------------------------------- Generación diferida de Figuras
+async function asegurarFigurasYPasos() {
+  if (figurasGeneradas || !ultimoResultado) return;
+  const aviso = document.getElementById('aviso-figuras');
+  if (aviso) aviso.style.display = 'flex';
+  setStatus('loading', 'Generando figuras del método (matplotlib)...');
+
+  try {
+    if (!matplotlibCargado) {
+      await pyodide.loadPackage('matplotlib');
+      matplotlibCargado = true;
+    }
+    const genFn = pyodide.globals.get('generar_figuras_y_pasos');
+    if (genFn) {
+      const nuevoHtml = genFn();
+      if (nuevoHtml && nuevoHtml.length > 50) {
+        ultimoResultado.html_pasos = nuevoHtml;
+        renderizarPasos(nuevoHtml);
+        figurasGeneradas = true;
+      }
+    }
+  } catch (err) {
+    console.error("Error al generar figuras con matplotlib:", err);
+  } finally {
+    if (aviso) aviso.style.display = 'none';
+    setStatus('ready', 'Listo');
+  }
 }
 
 // ----------------------------------------------------------- Inicializar Pyodide
@@ -140,7 +183,7 @@ async function inicializarPyodide() {
       pyodide.FS.mkdirTree('/home/pyodide/portico2d');
     } catch (e) {}
 
-    const modulos = ['__init__.py', 'modelo.py', 'solver.py', 'informe.py', 'dibujo.py'];
+    const modulos = ['__init__.py', 'modelo.py', 'solver.py', 'informe.py', 'dibujo.py', 'figuras.py'];
     for (const mod of modulos) {
       const resp = await fetch(`py/portico2d/${mod}`);
       if (!resp.ok) throw new Error(`Error al cargar ${mod} (HTTP ${resp.status})`);
@@ -161,14 +204,18 @@ from portico2d.modelo import Modelo
 from portico2d.solver import analizar, esfuerzos
 from portico2d.informe import html_pasos
 
+_ultimo_res = None
+
 def resolver_modelo_json(json_str):
+    global _ultimo_res
     datos = json.loads(json_str)
     modelo = Modelo.de_dict(datos)
     res = analizar(modelo)
+    _ultimo_res = res
     
-    # 1. Pasos 1–14 de informe.py
+    # 1. Pasos 1–14 de informe.py con KaTeX (inicialmente sin figuras pesadas)
     try:
-        pasos_html = html_pasos(res)
+        pasos_html = html_pasos(res, katex=True)
     except Exception as e:
         pasos_html = f"<p style='color:red;'>Error al generar pasos: {e}</p>"
 
@@ -187,6 +234,8 @@ def resolver_modelo_json(json_str):
             "s": float(rb.geo.s),
             "bi": float(rb.bi),
             "bj": float(rb.bj),
+            "rot_i": bool(rb.rot_i),
+            "rot_j": bool(rb.rot_j),
             "xs": xs.tolist(),
             "N": N.tolist(),
             "V": V.tolist(),
@@ -219,6 +268,34 @@ def resolver_modelo_json(json_str):
         "diagramas_barras": barras_diag
     }
     return json.dumps(salida)
+
+def generar_figuras_y_pasos():
+    global _ultimo_res
+    if _ultimo_res is None:
+        return ""
+    import os, base64
+    from portico2d import figuras as FG
+    from portico2d.informe import html_pasos
+    
+    carpeta = "/tmp/figuras_metodo"
+    os.makedirs(carpeta, exist_ok=True)
+    rutas = FG.generar(_ultimo_res, carpeta, dpi=120)
+    
+    def a_base64(path):
+        if not path or not os.path.exists(path):
+            return None
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+    
+    figuras_b64 = {
+        "numeracion": a_base64(rutas.get("numeracion")),
+        "configuraciones": [a_base64(p) for p in (rutas.get("configuraciones") or [])],
+        "fijacion": a_base64(rutas.get("fijacion"))
+    }
+    
+    html = html_pasos(_ultimo_res, katex=True, figuras=figuras_b64)
+    return html
 `);
 
     setStatus('ready', 'Listo para calcular');
@@ -227,12 +304,27 @@ def resolver_modelo_json(json_str):
     // Cargar ejemplo por defecto (Aplicación 2)
     await cargarEjemploDesdeServidor(selEjemplo.value, false);
 
-    // Modos de test automatizado
+    // Modos de test y automatización de capturas
     const params = new URLSearchParams(window.location.search);
     if (params.get('test_todos') === '1') {
       await ejecutarTestTodos();
     } else if (params.get('test') === '1' || params.get('autorun') === '1') {
       await resolver();
+      const tab = params.get('tab');
+      if (tab) activarPestana(tab);
+      const diag = params.get('diag');
+      if (diag) {
+        activarPestana('tab-diagramas');
+        document.querySelectorAll('.diag-btn').forEach(b => {
+          if (b.getAttribute('data-diag') === diag) {
+            document.querySelectorAll('.diag-btn').forEach(btn => btn.classList.remove('active'));
+            b.classList.add('active');
+            diagramaActual = diag;
+            actualizarDiagrama();
+          }
+        });
+      }
+      document.body.setAttribute('data-listo', '1');
     }
   } catch (err) {
     console.error("Fallo al iniciar Pyodide:", err);
@@ -383,7 +475,7 @@ function renderizarTablaBarras() {
       <td><input type="number" class="tbl-input" value="${b.i}" data-idx="${idx}" data-field="i" style="width: 55px;"></td>
       <td><input type="number" class="tbl-input" value="${b.j}" data-idx="${idx}" data-field="j" style="width: 55px;"></td>
       <td><input type="number" step="any" class="tbl-input" value="${b.EI}" data-idx="${idx}" data-field="EI"></td>
-      <td><input type="number" step="any" class="tbl-input" value="${b.EA}" data-idx="${idx}" data-field="EA"></td>
+      <td class="col-ea"><input type="number" step="any" class="tbl-input" value="${b.EA}" data-idx="${idx}" data-field="EA"></td>
       <td>
         <select class="tbl-input" data-idx="${idx}" data-field="extremos">
           ${EXTREMOS.map(ex => `<option value="${ex}" ${ex === extremosActual ? 'selected' : ''}>${ex}</option>`).join('')}
@@ -648,15 +740,108 @@ btnGuardarJson.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// Botón Exportar PDF (vista de impresión @media print)
-btnExportarPdf.addEventListener('click', () => {
+// ----------------------------------------------------------- Exportar PDF y Preparación
+async function esperarRenderizadoCompleto() {
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (e) {}
+  }
+  const imgs = Array.from(document.querySelectorAll('#pasos-contenedor img, #print-diagramas-grid img'));
+  await Promise.all(imgs.map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(res => {
+      img.onload = res;
+      img.onerror = res;
+    });
+  }));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await new Promise(r => setTimeout(r, 120));
+}
+
+function actualizarVisibilidadTablasPrint() {
+  const cardCargasNudo = document.querySelector('#tabla-cargas-nudo')?.closest('.card');
+  if (cardCargasNudo) {
+    cardCargasNudo.classList.toggle('sin-datos-print', (modeloActual.cargas_nudo?.length || 0) === 0);
+  }
+  const cardCargasRep = document.querySelector('#tabla-cargas-repartidas')?.closest('.card');
+  if (cardCargasRep) {
+    cardCargasRep.classList.toggle('sin-datos-print', (modeloActual.cargas_repartidas?.length || 0) === 0);
+  }
+  const cardCargasPunt = document.querySelector('#tabla-cargas-puntuales')?.closest('.card');
+  if (cardCargasPunt) {
+    cardCargasPunt.classList.toggle('sin-datos-print', (modeloActual.cargas_puntuales?.length || 0) === 0);
+  }
+}
+
+function ajustarMatricesAnchasPrint() {
+  const contenedores = document.querySelectorAll('.pasos-container .table-responsive');
+  contenedores.forEach(c => {
+    c.style.transform = '';
+    c.style.transformOrigin = '';
+    c.style.width = '';
+    c.style.marginBottom = '';
+    const sw = c.scrollWidth;
+    const maxW = 680;
+    if (sw > maxW) {
+      const escala = Math.max(0.68, maxW / sw);
+      c.style.transformOrigin = 'top left';
+      c.style.transform = `scale(${escala.toFixed(3)})`;
+      c.style.width = `${(100 / escala).toFixed(1)}%`;
+      const diffH = c.offsetHeight * (1 - escala);
+      c.style.marginBottom = `-${diffH.toFixed(0)}px`;
+    }
+  });
+}
+
+window.__prepararParaImpresion = async function() {
+  if (!ultimoResultado) return false;
+  // 1. Esperar figuras del método (matplotlib)
+  await asegurarFigurasYPasos();
+  // 2. Renderizar los 6 diagramas a ancho completo en print-diagramas-grid
+  renderizarTodosLosDiagramasParaImprimir();
+  // 3. Ocultar columna EA si EA es infinito
+  document.body.classList.toggle('ea-infinito', Boolean(modeloActual.ea_infinito));
+  // 4. Ocultar tarjetas de cargas sin datos
+  actualizarVisibilidadTablasPrint();
+  // 5. Ajustar matrices que excedan el ancho de página
+  ajustarMatricesAnchasPrint();
+  // 6. Metadata de impresión
   const meta = document.getElementById('print-meta');
   if (meta) {
     const fecha = new Date().toLocaleString('es-PE');
     meta.textContent = `${modeloActual.titulo} · EA = ${modeloActual.ea_infinito ? '∞' : 'finito'} · Impreso: ${fecha}`;
   }
-  window.print();
-});
+  // 7. Esperar a que KaTeX y todas las imágenes terminen
+  await esperarRenderizadoCompleto();
+  return true;
+};
+
+async function prepararYExportarPdf() {
+  if (!ultimoResultado) {
+    alert("Primero calcula el modelo para exportar el informe en PDF.");
+    return;
+  }
+
+  setStatus('loading', 'Preparando documento completo para PDF...');
+  const aviso = document.getElementById('aviso-figuras');
+  if (aviso) {
+    aviso.querySelector('span:last-child').textContent = 'Generando figuras del método y renderizando diagramas para PDF...';
+    aviso.style.display = 'flex';
+  }
+
+  try {
+    await window.__prepararParaImpresion();
+    // 8. Abrir ventana de impresión nativa
+    window.print();
+  } catch (err) {
+    console.error("Error al preparar PDF:", err);
+    alert("Error al preparar PDF: " + err.message);
+  } finally {
+    if (aviso) aviso.style.display = 'none';
+    setStatus('ready', 'Listo');
+  }
+}
+
+btnExportarPdf.addEventListener('click', prepararYExportarPdf);
 
 selEjemplo.addEventListener('change', () => {
   cargarEjemploDesdeServidor(selEjemplo.value, true);
@@ -669,6 +854,7 @@ async function resolver(cambiarPestana = false) {
   btnResolver.disabled = true;
   setStatus('loading', 'Resolviendo estructura...');
   tiempoCalc.textContent = '';
+  figurasGeneradas = false;
 
   try {
     const jsonStr = JSON.stringify(modeloActual);
@@ -699,6 +885,16 @@ async function resolver(cambiarPestana = false) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(resultado)
       });
+    }
+
+    if (params.get('captura') === '1') {
+      try {
+        await fetch('/api/captura_lista', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ok: true, diag: diagramaActual })
+        });
+      } catch (e) {}
     }
 
     return resultado;
@@ -812,18 +1008,48 @@ function renderizarResultados(res, tiempoMs) {
   elMatrizK.innerHTML = htmlK;
 }
 
-// ----------------------------------------------------------- Hito 3: Renderizar Pasos (informe.py)
+// ----------------------------------------------------------- Hito 3: Renderizar Pasos (informe.py con KaTeX)
 function renderizarPasos(html) {
   if (!pasosContenedor) return;
-  if (html) {
-    pasosContenedor.innerHTML = html;
-  } else {
+  if (!html) {
     pasosContenedor.innerHTML = '<p style="color: var(--text-muted);">Sin datos de pasos.</p>';
+    return;
+  }
+  pasosContenedor.innerHTML = html;
+  // Renderizar fórmulas KaTeX offline
+  if (window.katex) {
+    pasosContenedor.querySelectorAll('.katex-math').forEach(elem => {
+      try {
+        const tex = elem.textContent;
+        elem.innerHTML = '';
+        katex.render(tex, elem, {
+          displayMode: false,
+          throwOnError: false
+        });
+      } catch (err) {
+        console.warn("KaTeX render error:", err);
+      }
+    });
   }
 }
 
-// ----------------------------------------------------------- Hito 4: Diagramas Interactivos con Zoom
-let viewBoxState = { x: 0, y: 0, w: 800, h: 500, origX: 0, origY: 0, origW: 800, origH: 500 };
+// ----------------------------------------------------------- Hito 4: Diagramas Interactivos con Zoom y Opciones
+let viewBoxState = { x: 0, y: 0, w: 800, h: 500, origW: 800, origH: 500 };
+let mostrarValores = true;
+let mostrarCargas = true;
+
+const toggleValoresEl = document.getElementById('toggle-diag-valores');
+const toggleCargasEl = document.getElementById('toggle-diag-cargas');
+
+toggleValoresEl?.addEventListener('change', () => {
+  mostrarValores = toggleValoresEl.checked;
+  actualizarDiagrama();
+});
+
+toggleCargasEl?.addEventListener('change', () => {
+  mostrarCargas = toggleCargasEl.checked;
+  actualizarDiagrama();
+});
 
 document.querySelectorAll('.diag-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -839,11 +1065,33 @@ function actualizarDiagrama() {
   dibujarDiagramaSVG(diagramaActual);
 }
 
-function dibujarDiagramaSVG(tipo) {
-  const nudos = modeloActual.nudos;
-  if (!nudos || nudos.length === 0) return;
+// Utilidad para crear etiquetas con fondo para evitar superposiciones
+function svgBadge(x, y, text, color = '#f8fafc', bg = null, fontSize = 11, anchor = 'middle', borderCol = null) {
+  const pX = 5, pY = 2;
+  const wAprox = Math.max(text.length * (fontSize * 0.62), 22);
+  const hAprox = fontSize + 4;
+  let rx = x - wAprox / 2;
+  if (anchor === 'start') rx = x;
+  if (anchor === 'end') rx = x - wAprox;
+  const ry = y - hAprox + 2;
 
-  // 1. Calcular caja envolvente en coordenadas reales
+  const fondo = bg || 'rgba(15, 23, 42, 0.84)';
+  const borde = borderCol || 'rgba(255, 255, 255, 0.18)';
+
+  return `
+    <g class="diag-badge-val" pointer-events="none">
+      <rect x="${rx - pX}" y="${ry - pY}" width="${wAprox + 2 * pX}" height="${hAprox + 2 * pY}" rx="3" ry="3" fill="${fondo}" stroke="${borde}" stroke-width="0.8"/>
+      <text x="${x}" y="${y}" fill="${color}" font-size="${fontSize}" font-family="JetBrains Mono, monospace" font-weight="600" text-anchor="${anchor}">${text}</text>
+    </g>
+  `;
+}
+
+// Generador centralizado de SVG para pantalla y PDF
+function generarSvgDiagrama(tipo, W = 800, H = 500, conValores = true, conCargas = true, temaClaro = false) {
+  const nudos = modeloActual.nudos;
+  if (!nudos || nudos.length === 0) return '';
+
+  // 1. Caja envolvente en coordenadas estructurales
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   nudos.forEach(n => {
     if (n.x < minX) minX = n.x;
@@ -856,64 +1104,110 @@ function dibujarDiagramaSVG(tipo) {
   const spanY = Math.max(maxY - minY, 1.0);
   const spanMax = Math.max(spanX, spanY);
 
-  const W = 800, H = 500;
-  const pad = 90;
+  const pad = Math.min(W, H) * 0.16;
   const escala = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY);
 
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
   const toSvgX = (x) => W / 2 + (x - cx) * escala;
-  const toSvgY = (y) => H / 2 - (y - cy) * escala; // Y invertida hacia arriba
+  const toSvgY = (y) => H / 2 - (y - cy) * escala;
+
+  // Paleta según tema
+  const colBarra = temaClaro ? '#1e293b' : '#475569';
+  const colBrazo = temaClaro ? '#000000' : '#0f172a';
+  const colNudo = temaClaro ? '#0284c7' : '#38bdf8';
+  const colTextoNudo = temaClaro ? '#0f172a' : '#cbd5e1';
+  const colApoyo = temaClaro ? '#475569' : '#94a3b8';
+  const colApoyoRelleno = temaClaro ? '#ffffff' : '#0b0f19';
+  const colCarga = temaClaro ? '#b45309' : '#f59e0b';
+  const colCargaTexto = temaClaro ? '#b45309' : '#fbbf24';
+  const colDmf = temaClaro ? '#dc2626' : '#ef4444';
+  const fillDmf = temaClaro ? 'rgba(220, 38, 38, 0.15)' : 'rgba(239, 68, 68, 0.22)';
+  const colDfc = temaClaro ? '#0284c7' : '#38bdf8';
+  const fillDfc = temaClaro ? 'rgba(2, 132, 199, 0.15)' : 'rgba(56, 189, 248, 0.22)';
+  const colDfn = temaClaro ? '#059669' : '#10b981';
+  const fillDfn = temaClaro ? 'rgba(5, 150, 105, 0.15)' : 'rgba(16, 185, 129, 0.22)';
+  const colDef = temaClaro ? '#7c3aed' : '#a855f7';
+
+  const badgeBg = temaClaro ? '#ffffff' : 'rgba(15, 23, 42, 0.86)';
+  const badgeBorder = temaClaro ? '#cbd5e1' : 'rgba(255, 255, 255, 0.2)';
 
   let svgContent = '';
 
-  // Cuadrícula sutil
+  // Marcadores de flechas únicos
+  const idPrefix = temaClaro ? 'p_' : 's_';
   svgContent += `<defs>
+    ${!temaClaro ? `
     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
       <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
-    </pattern>
-    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </pattern>` : ''}
+    <marker id="${idPrefix}arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="${colDfc}"/>
     </marker>
-    <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f43f5e"/>
+    <marker id="${idPrefix}arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="${colDfn}"/>
     </marker>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#grid)" />`;
+    <marker id="${idPrefix}arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="${colCarga}"/>
+    </marker>
+  </defs>`;
 
-  // Factor de escala para diagramas de esfuerzos
+  if (!temaClaro) {
+    svgContent += `<rect width="100%" height="100%" fill="url(#grid)" />`;
+  }
+
+  // Factor de escala de solicitaciones
   let valMaxAbs = 1e-12;
-  const diagBarras = ultimoResultado.diagramas_barras || [];
+  const diagBarras = ultimoResultado?.diagramas_barras || [];
   diagBarras.forEach(b => {
     if (tipo === 'DMF') b.M.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
     if (tipo === 'DFC') b.V.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
     if (tipo === 'DFN') b.N.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
     if (tipo === 'def') b.v.forEach(v => valMaxAbs = Math.max(valMaxAbs, Math.abs(v)));
   });
+  const escalaEsfuerzo = (0.16 * spanMax) / (valMaxAbs > 0 ? valMaxAbs : 1.0);
 
-  const escalaEsfuerzo = (0.15 * spanMax) / (valMaxAbs > 0 ? valMaxAbs : 1.0);
-
-  // 2. Dibujar estructura base (ejes de barras)
+  // 2. Dibujar estructura base (barras, brazos rígidos, rótulas)
   diagBarras.forEach(b => {
     const xi = toSvgX(b.xi), yi = toSvgY(b.yi);
     const xj = toSvgX(b.xi + b.L * b.c), yj = toSvgY(b.yi + b.L * b.s);
 
-    // Eje de la barra
-    svgContent += `<line x1="${xi}" y1="${yi}" x2="${xj}" y2="${yj}" stroke="#334155" stroke-width="4" stroke-linecap="round"/>`;
+    // Eje de barra
+    svgContent += `<line x1="${xi}" y1="${yi}" x2="${xj}" y2="${yj}" stroke="${colBarra}" stroke-width="${temaClaro ? 3.5 : 4}" stroke-linecap="round"/>`;
 
     // Brazos rígidos
     if (b.bi > 0) {
       const xbi = toSvgX(b.xi + b.bi * b.c), ybi = toSvgY(b.yi + b.bi * b.s);
-      svgContent += `<line x1="${xi}" y1="${yi}" x2="${xbi}" y2="${ybi}" stroke="#0f172a" stroke-width="8" stroke-linecap="square"/>`;
+      svgContent += `<line x1="${xi}" y1="${yi}" x2="${xbi}" y2="${ybi}" stroke="${colBrazo}" stroke-width="${temaClaro ? 7 : 8}" stroke-linecap="square"/>`;
     }
     if (b.bj > 0) {
       const xbj = toSvgX(b.xi + (b.L - b.bj) * b.c), ybj = toSvgY(b.yi + (b.L - b.bj) * b.s);
-      svgContent += `<line x1="${xbj}" y1="${ybj}" x2="${xj}" y2="${yj}" stroke="#0f172a" stroke-width="8" stroke-linecap="square"/>`;
+      svgContent += `<line x1="${xbj}" y1="${ybj}" x2="${xj}" y2="${yj}" stroke="${colBrazo}" stroke-width="${temaClaro ? 7 : 8}" stroke-linecap="square"/>`;
     }
 
-    // 3. Dibujar diagramas específicos
+    // Rótulas
+    if (b.rot_i) {
+      const xri = toSvgX(b.xi + Math.min(b.L * 0.08, 0.25) * b.c);
+      const yri = toSvgY(b.yi + Math.min(b.L * 0.08, 0.25) * b.s);
+      svgContent += `<circle cx="${xri}" cy="${yri}" r="4" fill="#ffffff" stroke="${colBarra}" stroke-width="2"/>`;
+    }
+    if (b.rot_j) {
+      const xrj = toSvgX(b.xi + (b.L - Math.min(b.L * 0.08, 0.25)) * b.c);
+      const yrj = toSvgY(b.yi + (b.L - Math.min(b.L * 0.08, 0.25)) * b.s);
+      svgContent += `<circle cx="${xrj}" cy="${yrj}" r="4" fill="#ffffff" stroke="${colBarra}" stroke-width="2"/>`;
+    }
+
+    // Rótulos de barras en el modelo (si conValores está activo)
+    if (tipo === 'modelo' && conValores) {
+      const xm = (xi + xj) / 2;
+      const ym = (yi + yj) / 2;
+      const offN = 14;
+      const nx = -b.s * offN, ny = -b.c * offN;
+      svgContent += svgBadge(xm + nx, ym + ny, `B${b.id} (${b.L.toFixed(2)}m)`, colTextoNudo, badgeBg, 10, 'middle', badgeBorder);
+    }
+
+    // 3. Diagramas específicos
     if (tipo === 'def') {
-      // Deformada
       let defPath = '';
       for (let k = 0; k < b.xs.length; k++) {
         const x_k = b.xs[k];
@@ -924,15 +1218,11 @@ function dibujarDiagramaSVG(tipo) {
         const sx = toSvgX(x_def), sy = toSvgY(y_def);
         defPath += (k === 0 ? `M ${sx} ${sy}` : ` L ${sx} ${sy}`);
       }
-      svgContent += `<path d="${defPath}" fill="none" stroke="#a855f7" stroke-width="3" stroke-linecap="round"/>`;
+      svgContent += `<path d="${defPath}" fill="none" stroke="${colDef}" stroke-width="3" stroke-linecap="round"/>`;
     } else if (tipo === 'DMF' || tipo === 'DFC' || tipo === 'DFN') {
-      // Diagramas DMF, DFC, DFN con polígonos sombreados
       const valores = tipo === 'DMF' ? b.M : (tipo === 'DFC' ? b.V : b.N);
-      const colorTrazo = tipo === 'DMF' ? '#ef4444' : (tipo === 'DFC' ? '#38bdf8' : '#14b8a6');
-      const colorRelleno = tipo === 'DMF' ? 'rgba(239, 68, 68, 0.2)' : (tipo === 'DFC' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(20, 184, 166, 0.2)');
-
-      // Perpendicular local: (-s, c)
-      // M > 0 tracciona cara -y (lado de tracción)
+      const colTrazo = tipo === 'DMF' ? colDmf : (tipo === 'DFC' ? colDfc : colDfn);
+      const colRelleno = tipo === 'DMF' ? fillDmf : (tipo === 'DFC' ? fillDfc : fillDfn);
       const signo = tipo === 'DMF' ? -1 : 1;
 
       let poligono = `M ${xi} ${yi}`;
@@ -948,74 +1238,265 @@ function dibujarDiagramaSVG(tipo) {
       }
       poligono += ` L ${xj} ${yj} Z`;
 
-      svgContent += `<path d="${poligono}" fill="${colorRelleno}" stroke="none"/>`;
-      svgContent += `<path d="${curvaD}" fill="none" stroke="${colorTrazo}" stroke-width="2"/>`;
+      svgContent += `<path d="${poligono}" fill="${colRelleno}" stroke="none"/>`;
+      svgContent += `<path d="${curvaD}" fill="none" stroke="${colTrazo}" stroke-width="2.2"/>`;
 
-      // Texto de valores en extremos de barra
-      const vIni = valores[0], vFin = valores[valores.length - 1];
-      if (Math.abs(vIni) > 0.05) {
-        const x0 = toSvgX((b.xi) + vIni * escalaEsfuerzo * signo * (-b.s));
-        const y0 = toSvgY((b.yi) + vIni * escalaEsfuerzo * signo * b.c);
-        svgContent += `<text x="${x0}" y="${y0 - 6}" fill="${colorTrazo}" font-size="11" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">${vIni.toFixed(1)}</text>`;
-      }
-      if (Math.abs(vFin) > 0.05) {
-        const x1 = toSvgX((b.xi + b.L * b.c) + vFin * escalaEsfuerzo * signo * (-b.s));
-        const y1 = toSvgY((b.yi + b.L * b.s) + vFin * escalaEsfuerzo * signo * b.c);
-        svgContent += `<text x="${x1}" y="${y1 - 6}" fill="${colorTrazo}" font-size="11" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">${vFin.toFixed(1)}</text>`;
+      // Etiquetas de valores en extremos y picos si conValores está activo
+      if (conValores) {
+        const vIni = valores[0];
+        const vFin = valores[valores.length - 1];
+
+        let idxPico = 0, maxLocal = -Infinity, minLocal = Infinity;
+        for (let k = 0; k < valores.length; k++) {
+          if (valores[k] > maxLocal) maxLocal = valores[k];
+          if (valores[k] < minLocal) minLocal = valores[k];
+        }
+        const picoExtremo = Math.abs(maxLocal) > Math.abs(minLocal) ? maxLocal : minLocal;
+        for (let k = 0; k < valores.length; k++) {
+          if (Math.abs(valores[k] - picoExtremo) < 1e-6) { idxPico = k; break; }
+        }
+
+        if (Math.abs(vIni) > 0.05) {
+          const offOut = 12 * Math.sign(vIni * signo || 1);
+          const x0 = toSvgX(b.xi + vIni * escalaEsfuerzo * signo * (-b.s)) + (-b.s * offOut);
+          const y0 = toSvgY(b.yi + vIni * escalaEsfuerzo * signo * b.c) - (b.c * offOut);
+          svgContent += svgBadge(x0, y0, vIni.toFixed(2), colTrazo, badgeBg, 11, 'middle', badgeBorder);
+        }
+
+        if (Math.abs(vFin) > 0.05) {
+          const offOut = 12 * Math.sign(vFin * signo || 1);
+          const x1 = toSvgX(b.xi + b.L * b.c + vFin * escalaEsfuerzo * signo * (-b.s)) + (-b.s * offOut);
+          const y1 = toSvgY(b.yi + b.L * b.s + vFin * escalaEsfuerzo * signo * b.c) - (b.c * offOut);
+          svgContent += svgBadge(x1, y1, vFin.toFixed(2), colTrazo, badgeBg, 11, 'middle', badgeBorder);
+        }
+
+        if (idxPico > 5 && idxPico < valores.length - 6 &&
+            Math.abs(picoExtremo - vIni) > 0.1 && Math.abs(picoExtremo - vFin) > 0.1) {
+          const x_pico = b.xs[idxPico];
+          const offOut = 12 * Math.sign(picoExtremo * signo || 1);
+          const xp = toSvgX(b.xi + x_pico * b.c + picoExtremo * escalaEsfuerzo * signo * (-b.s)) + (-b.s * offOut);
+          const yp = toSvgY(b.yi + x_pico * b.s + picoExtremo * escalaEsfuerzo * signo * b.c) - (b.c * offOut);
+          svgContent += svgBadge(xp, yp, `máx=${picoExtremo.toFixed(2)}`, colTrazo, badgeBg, 11, 'middle', badgeBorder);
+        }
       }
     }
   });
 
-  // 4. Dibujar apoyos y nudos
+  // 4. Dibujar cargas si conCargas está activo (en TODOS los diagramas)
+  if (conCargas) {
+    // 4.1 Cargas repartidas
+    (modeloActual.cargas_repartidas || []).forEach(cr => {
+      const barra = modeloActual.barras.find(b => b.id === cr.barra);
+      if (!barra) return;
+      const nI = modeloActual.nudos.find(n => n.id === barra.i);
+      const nJ = modeloActual.nudos.find(n => n.id === barra.j);
+      if (!nI || !nJ) return;
+
+      const dx = nJ.x - nI.x, dy = nJ.y - nI.y;
+      const L = Math.hypot(dx, dy);
+      const c = dx / L, s = dy / L;
+
+      const a = cr.a || 0;
+      const bb = (cr.b === 0 || !cr.b) ? L : Math.min(cr.b, L);
+      const w1 = cr.w || 0;
+      const w2 = (cr.w2 === null || cr.w2 === undefined) ? w1 : cr.w2;
+      const wref = Math.abs(w1) >= Math.abs(w2) ? w1 : w2;
+      const sgn = Math.sign(wref || 1);
+
+      let d = [-s * sgn, c * sgn];
+      if (cr.direccion?.startsWith('axial')) d = [c * sgn, s * sgn];
+      else if (cr.direccion === 'global X') d = [sgn, 0];
+      else if (cr.direccion === 'global Y') d = [0, sgn];
+
+      const hCarga = 30;
+      const wMaxAbs = Math.max(Math.abs(w1), Math.abs(w2), 1e-6);
+      const nFlechas = Math.max(4, Math.min(9, Math.round(((bb - a) / L) * 7) + 2));
+      let ptsTope = [];
+
+      for (let k = 0; k < nFlechas; k++) {
+        const xTramo = a + (bb - a) * (k / (nFlechas - 1));
+        const wLocal = w1 + (w2 - w1) * ((xTramo - a) / Math.max(bb - a, 1e-6));
+        const altLocal = hCarga * (Math.abs(wLocal) / wMaxAbs);
+
+        const xBase = nI.x + xTramo * c;
+        const yBase = nI.y + xTramo * s;
+        const sxBase = toSvgX(xBase);
+        const syBase = toSvgY(yBase);
+
+        const sxTope = sxBase - d[0] * altLocal;
+        const syTope = syBase + d[1] * altLocal;
+        ptsTope.push({ x: sxTope, y: syTope });
+
+        if (altLocal > 4) {
+          svgContent += `<line x1="${sxTope}" y1="${syTope}" x2="${sxBase}" y2="${syBase}" stroke="${colCarga}" stroke-width="1.3" marker-end="url(#${idPrefix}arrow-amber)"/>`;
+        }
+      }
+
+      let crestaPath = `M ${ptsTope[0].x} ${ptsTope[0].y}`;
+      for (let k = 1; k < ptsTope.length; k++) {
+        crestaPath += ` L ${ptsTope[k].x} ${ptsTope[k].y}`;
+      }
+      svgContent += `<path d="${crestaPath}" fill="none" stroke="${colCarga}" stroke-width="2"/>`;
+
+      if (conValores) {
+        if (Math.abs(w1 - w2) < 1e-4) {
+          const midP = ptsTope[Math.floor(ptsTope.length / 2)];
+          svgContent += svgBadge(midP.x, midP.y - 8, `${Math.abs(w1)} t/m`, colCargaTexto, badgeBg, 11, 'middle', badgeBorder);
+        } else {
+          svgContent += svgBadge(ptsTope[0].x, ptsTope[0].y - 8, `${Math.abs(w1)} t/m`, colCargaTexto, badgeBg, 11, 'middle', badgeBorder);
+          svgContent += svgBadge(ptsTope[ptsTope.length - 1].x, ptsTope[ptsTope.length - 1].y - 8, `${Math.abs(w2)} t/m`, colCargaTexto, badgeBg, 11, 'middle', badgeBorder);
+        }
+      }
+    });
+
+    // 4.2 Cargas puntuales sobre barras
+    (modeloActual.cargas_puntuales || []).forEach(cp => {
+      const barra = modeloActual.barras.find(b => b.id === cp.barra);
+      if (!barra) return;
+      const nI = modeloActual.nudos.find(n => n.id === barra.i);
+      const nJ = modeloActual.nudos.find(n => n.id === barra.j);
+      if (!nI || !nJ) return;
+
+      const dx = nJ.x - nI.x, dy = nJ.y - nI.y;
+      const L = Math.hypot(dx, dy);
+      const c = dx / L, s = dy / L;
+
+      const xP = nI.x + cp.a * c;
+      const yP = nI.y + cp.a * s;
+      const sxP = toSvgX(xP), syP = toSvgY(yP);
+
+      const sgn = Math.sign(cp.P || 1);
+      let d = [-s * sgn, c * sgn];
+      if (cp.direccion?.startsWith('axial')) d = [c * sgn, s * sgn];
+      else if (cp.direccion === 'global X') d = [sgn, 0];
+      else if (cp.direccion === 'global Y') d = [0, sgn];
+
+      const lenFlecha = 36;
+      const sxOri = sxP - d[0] * lenFlecha;
+      const syOri = syP + d[1] * lenFlecha;
+
+      svgContent += `<line x1="${sxOri}" y1="${syOri}" x2="${sxP}" y2="${syP}" stroke="${colCarga}" stroke-width="2.2" marker-end="url(#${idPrefix}arrow-amber)"/>`;
+      if (conValores) {
+        svgContent += svgBadge(sxOri, syOri - 6, `${Math.abs(cp.P)} t`, colCargaTexto, badgeBg, 11, 'middle', badgeBorder);
+      }
+    });
+
+    // 4.3 Cargas directas en nudos (en modelo y en reacciones)
+    if (tipo === 'modelo' || tipo === 'reacciones') {
+      (modeloActual.cargas_nudo || []).forEach(cn => {
+        const n = modeloActual.nudos.find(nd => nd.id === cn.nudo);
+        if (!n) return;
+        const sx = toSvgX(n.x), sy = toSvgY(n.y);
+
+        if (Math.abs(cn.Fx) > 0) {
+          const sgn = Math.sign(cn.Fx);
+          const xIni = sx - sgn * 40, xFin = sx - sgn * 6;
+          svgContent += `<line x1="${xIni}" y1="${sy}" x2="${xFin}" y2="${sy}" stroke="${colCarga}" stroke-width="2.2" marker-end="url(#${idPrefix}arrow-amber)"/>`;
+          if (conValores) {
+            svgContent += svgBadge((xIni + xFin) / 2, sy - 8, `Fx=${Math.abs(cn.Fx)}t`, colCargaTexto, badgeBg, 10, 'middle', badgeBorder);
+          }
+        }
+
+        if (Math.abs(cn.Fy) > 0) {
+          const sgn = Math.sign(cn.Fy);
+          const yIni = sy + sgn * 40, yFin = sy + sgn * 6;
+          svgContent += `<line x1="${sx}" y1="${yIni}" x2="${sx}" y2="${yFin}" stroke="${colCarga}" stroke-width="2.2" marker-end="url(#${idPrefix}arrow-amber)"/>`;
+          if (conValores) {
+            svgContent += svgBadge(sx + 8, (yIni + yFin) / 2, `Fy=${Math.abs(cn.Fy)}t`, colCargaTexto, badgeBg, 10, 'start', badgeBorder);
+          }
+        }
+
+        if (Math.abs(cn.M) > 0) {
+          const rM = 22;
+          svgContent += `<circle cx="${sx}" cy="${sy}" r="${rM}" fill="none" stroke="${colCarga}" stroke-width="2" stroke-dasharray="10 4"/>`;
+          if (conValores) {
+            svgContent += svgBadge(sx + rM + 4, sy - rM, `Mz=${Math.abs(cn.M)}t·m`, colCargaTexto, badgeBg, 10, 'start', badgeBorder);
+          }
+        }
+      });
+    }
+  }
+
+  // 5. Dibujar apoyos, nudos y reacciones
   nudos.forEach(n => {
     const sx = toSvgX(n.x), sy = toSvgY(n.y);
     const ap = n.apoyo;
 
-    // Símbolos de apoyos
+    // Símbolos de apoyos bien diferenciados
     if (ap === 'empotrado') {
-      svgContent += `<line x1="${sx - 16}" y1="${sy + 10}" x2="${sx + 16}" y2="${sy + 10}" stroke="#94a3b8" stroke-width="3"/>`;
+      svgContent += `<line x1="${sx - 16}" y1="${sy + 10}" x2="${sx + 16}" y2="${sy + 10}" stroke="${colApoyo}" stroke-width="3"/>`;
       for (let dx = -14; dx <= 14; dx += 6) {
-        svgContent += `<line x1="${sx + dx}" y1="${sy + 10}" x2="${sx + dx - 6}" y2="${sy + 18}" stroke="#64748b" stroke-width="1.5"/>`;
+        svgContent += `<line x1="${sx + dx}" y1="${sy + 10}" x2="${sx + dx - 6}" y2="${sy + 18}" stroke="${colApoyo}" stroke-width="1.5"/>`;
       }
     } else if (ap === 'articulado') {
-      svgContent += `<polygon points="${sx},${sy} ${sx - 10},${sy + 16} ${sx + 10},${sy + 16}" fill="none" stroke="#94a3b8" stroke-width="2"/>`;
-      svgContent += `<line x1="${sx - 14}" y1="${sy + 17}" x2="${sx + 14}" y2="${sy + 17}" stroke="#94a3b8" stroke-width="2"/>`;
+      svgContent += `<polygon points="${sx},${sy} ${sx - 10},${sy + 16} ${sx + 10},${sy + 16}" fill="${colApoyoRelleno}" stroke="${colApoyo}" stroke-width="2"/>`;
+      svgContent += `<line x1="${sx - 14}" y1="${sy + 17}" x2="${sx + 14}" y2="${sy + 17}" stroke="${colApoyo}" stroke-width="2"/>`;
     } else if (ap.startsWith('rodillo')) {
-      svgContent += `<polygon points="${sx},${sy} ${sx - 10},${sy + 13} ${sx + 10},${sy + 13}" fill="none" stroke="#94a3b8" stroke-width="2"/>`;
-      svgContent += `<circle cx="${sx - 5}" cy="${sy + 17}" r="3" fill="none" stroke="#94a3b8" stroke-width="1.5"/>`;
-      svgContent += `<circle cx="${sx + 5}" cy="${sy + 17}" r="3" fill="none" stroke="#94a3b8" stroke-width="1.5"/>`;
-      svgContent += `<line x1="${sx - 14}" y1="${sy + 22}" x2="${sx + 14}" y2="${sy + 22}" stroke="#94a3b8" stroke-width="2"/>`;
+      svgContent += `<polygon points="${sx},${sy} ${sx - 10},${sy + 13} ${sx + 10},${sy + 13}" fill="${colApoyoRelleno}" stroke="${colApoyo}" stroke-width="2"/>`;
+      svgContent += `<circle cx="${sx - 5}" cy="${sy + 17}" r="3" fill="${colApoyoRelleno}" stroke="${colApoyo}" stroke-width="1.5"/>`;
+      svgContent += `<circle cx="${sx + 5}" cy="${sy + 17}" r="3" fill="${colApoyoRelleno}" stroke="${colApoyo}" stroke-width="1.5"/>`;
+      svgContent += `<line x1="${sx - 14}" y1="${sy + 22}" x2="${sx + 14}" y2="${sy + 22}" stroke="${colApoyo}" stroke-width="2"/>`;
     }
 
-    // Reacciones si tipo == 'reacciones'
-    if (tipo === 'reacciones' && ultimoResultado.reacciones[n.id]) {
+    // Reacciones en apoyos si tipo === 'reacciones'
+    if (tipo === 'reacciones' && ultimoResultado?.reacciones?.[n.id]) {
       const r = ultimoResultado.reacciones[n.id];
       const rx = r[0], ry = r[1], mz = r[2];
 
+      // Flecha Rx
       if (Math.abs(rx) > 0.01) {
-        const dir = rx > 0 ? 1 : -1;
-        const x1 = sx - dir * 45, x2 = sx - dir * 6;
-        svgContent += `<line x1="${x1}" y1="${sy}" x2="${x2}" y2="${sy}" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)"/>`;
-        svgContent += `<text x="${x1}" y="${sy - 8}" fill="#38bdf8" font-size="11" font-family="JetBrains Mono" font-weight="600">Rx=${rx.toFixed(2)}t</text>`;
+        const sgn = rx > 0 ? 1 : -1;
+        const xIni = sx - sgn * 48, xFin = sx - sgn * 6;
+        svgContent += `<line x1="${xIni}" y1="${sy}" x2="${xFin}" y2="${sy}" stroke="${colDfc}" stroke-width="2.5" marker-end="url(#${idPrefix}arrow-blue)"/>`;
+        if (conValores) {
+          svgContent += svgBadge((xIni + xFin) / 2, sy - 8, `Rx=${rx.toFixed(2)}t`, colDfc, badgeBg, 11, 'middle', badgeBorder);
+        }
       }
+
+      // Flecha Ry (despejada respecto al apoyo)
       if (Math.abs(ry) > 0.01) {
-        const dir = ry > 0 ? 1 : -1;
-        const y1 = sy + dir * 45, y2 = sy + dir * 6;
-        svgContent += `<line x1="${sx}" y1="${y1}" x2="${sx}" y2="${y2}" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrow)"/>`;
-        svgContent += `<text x="${sx + 8}" y="${(y1 + y2) / 2}" fill="#34d399" font-size="11" font-family="JetBrains Mono" font-weight="600">Ry=${ry.toFixed(2)}t</text>`;
+        const sgn = ry > 0 ? 1 : -1;
+        const yIni = sy + sgn * 48, yFin = sy + sgn * 6;
+        svgContent += `<line x1="${sx}" y1="${yIni}" x2="${sx}" y2="${yFin}" stroke="${colDfn}" stroke-width="2.5" marker-end="url(#${idPrefix}arrow-green)"/>`;
+        if (conValores) {
+          svgContent += svgBadge(sx + 12, sy - 10, `Ry=${ry.toFixed(2)}t`, colDfn, badgeBg, 11, 'start', badgeBorder);
+        }
       }
+
+      // Momento Mz
       if (Math.abs(mz) > 0.01) {
-        svgContent += `<circle cx="${sx}" cy="${sy}" r="18" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="10 5"/>`;
-        svgContent += `<text x="${sx + 20}" y="${sy - 15}" fill="#fbbf24" font-size="11" font-family="JetBrains Mono" font-weight="600">M=${mz.toFixed(2)}</text>`;
+        svgContent += `<circle cx="${sx}" cy="${sy}" r="22" fill="none" stroke="${colCarga}" stroke-width="2" stroke-dasharray="10 4"/>`;
+        if (conValores) {
+          svgContent += svgBadge(sx + 24, sy - 24, `Mz=${mz.toFixed(2)}t·m`, colCarga, badgeBg, 11, 'start', badgeBorder);
+        }
       }
     }
 
-    // Círculo del nudo y etiqueta
-    svgContent += `<circle cx="${sx}" cy="${sy}" r="5" fill="#38bdf8" stroke="#0b0f19" stroke-width="2"/>`;
-    svgContent += `<text x="${sx + 8}" y="${sy - 8}" fill="#cbd5e1" font-size="11" font-family="Inter" font-weight="600">N${n.id}</text>`;
+    // Deformada: valores u, v, θ en los nudos si conValores está activo
+    if (tipo === 'def' && conValores && ultimoResultado?.u_nudos?.[n.id]) {
+      const [ux, uy, th] = ultimoResultado.u_nudos[n.id];
+      if (Math.abs(ux) + Math.abs(uy) + Math.abs(th) > 1e-6) {
+        const xDefN = sx + (ux * escalaEsfuerzo);
+        const yDefN = sy - (uy * escalaEsfuerzo);
+        svgContent += svgBadge(xDefN, yDefN - 14, `u=${ux.toFixed(5)} v=${uy.toFixed(5)} θ=${th.toFixed(5)}`, colDef, badgeBg, 10, 'middle', badgeBorder);
+      }
+    }
+
+    // Círculo del nudo y su ID
+    svgContent += `<circle cx="${sx}" cy="${sy}" r="5" fill="${colNudo}" stroke="${colApoyoRelleno}" stroke-width="2"/>`;
+    svgContent += `<text x="${sx + 8}" y="${sy - 8}" fill="${colTextoNudo}" font-size="11" font-family="Inter" font-weight="600">${n.id}</text>`;
   });
 
-  diagramaSvg.innerHTML = svgContent;
+  return svgContent;
+}
+
+function dibujarDiagramaSVG(tipo) {
+  const nudos = modeloActual.nudos;
+  if (!nudos || nudos.length === 0) return;
+
+  const W = 800, H = 500;
+  const svgHtml = generarSvgDiagrama(tipo, W, H, mostrarValores, mostrarCargas, false);
+  diagramaSvg.innerHTML = svgHtml;
 
   // Actualizar estado de viewBox
   viewBoxState.origW = W;
@@ -1027,7 +1508,7 @@ function dibujarDiagramaSVG(tipo) {
   diagramaSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
   const nombres = {
-    modelo: "Modelo geométrico y cargas",
+    modelo: "Modelo geométrico y cargas aplicadas",
     def: "Deformada elástica (flecha magnificada)",
     DMF: "Diagrama de Momentos Flectores [M] (t·m)",
     DFC: "Diagrama de Fuerzas Cortantes [V] (t)",
@@ -1035,6 +1516,37 @@ function dibujarDiagramaSVG(tipo) {
     reacciones: "Reacciones en apoyos (Rx, Ry, Mz)"
   };
   diagramaInfo.textContent = `${nombres[tipo] || tipo} · Zoom: dos dedos o rueda`;
+}
+
+// Renderizado de los 6 diagramas en bloque para impresión PDF
+function renderizarTodosLosDiagramasParaImprimir() {
+  const grid = document.getElementById('print-diagramas-grid');
+  if (!grid || !ultimoResultado) return;
+  grid.innerHTML = '';
+
+  const lista = [
+    { tipo: 'modelo', titulo: '1. Modelo Geométrico y Cargas Aplicadas' },
+    { tipo: 'def', titulo: '2. Deformada Elástica (Desplazamientos Magnificados)' },
+    { tipo: 'DFN', titulo: '3. Diagrama de Fuerzas Normales [N] (t)' },
+    { tipo: 'DFC', titulo: '4. Diagrama de Fuerzas Cortantes [V] (t)' },
+    { tipo: 'DMF', titulo: '5. Diagrama de Momentos Flectores [M] (t·m)' },
+    { tipo: 'reacciones', titulo: '6. Reacciones en Apoyos y Equilibrio Global' }
+  ];
+
+  lista.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'print-diagrama-item';
+    const svgInterno = generarSvgDiagrama(item.tipo, 800, 420, true, true, true);
+    div.innerHTML = `
+      <div class="print-diagrama-titulo">
+        <strong>${item.titulo}</strong>
+      </div>
+      <svg class="diagrama-svg" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid meet">
+        ${svgInterno}
+      </svg>
+    `;
+    grid.appendChild(div);
+  });
 }
 
 // ----------------------------------------------------------- Zoom con dos dedos y Pan Táctil

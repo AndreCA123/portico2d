@@ -11,6 +11,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css">
+  <!-- KaTeX servido localmente (offline) -->
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <script src="vendor/katex/katex.min.js"></script>
   <!-- Carga Pyodide desde CDN -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 </head>
@@ -101,7 +104,7 @@
     <section id="tab-nudos" class="tab-content active">
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">📍 Nudos de la estructura</h2>
+          <h2 class="card-title"><span class="emoji-icon">📍 </span>Nudos de la estructura</h2>
           <button id="btn-agregar-nudo" class="btn-sm">+ Agregar Nudo</button>
         </div>
         <div class="table-responsive">
@@ -125,7 +128,7 @@
     <section id="tab-barras" class="tab-content">
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">📏 Barras (Elementos)</h2>
+          <h2 class="card-title"><span class="emoji-icon">📏 </span>Barras (Elementos)</h2>
           <button id="btn-agregar-barra" class="btn-sm">+ Agregar Barra</button>
         </div>
         <div class="table-responsive">
@@ -136,7 +139,7 @@
                 <th style="width: 80px;">Nudo i</th>
                 <th style="width: 80px;">Nudo j</th>
                 <th>EI (t·m²)</th>
-                <th>EA (t)</th>
+                <th class="col-ea">EA (t)</th>
                 <th>Extremos</th>
                 <th>Brazo i (m)</th>
                 <th>Brazo j (m)</th>
@@ -154,7 +157,7 @@
       <!-- Cargas en Nudos -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">● Cargas Directas en Nudos</h2>
+          <h2 class="card-title"><span class="emoji-icon">● </span>Cargas Directas en Nudos</h2>
           <button id="btn-agregar-carga-nudo" class="btn-sm">+ Carga en Nudo</button>
         </div>
         <div class="table-responsive">
@@ -176,7 +179,7 @@
       <!-- Cargas Repartidas -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">▰ Cargas Repartidas sobre Barras</h2>
+          <h2 class="card-title"><span class="emoji-icon">▰ </span>Cargas Repartidas sobre Barras</h2>
           <button id="btn-agregar-carga-repartida" class="btn-sm">+ Carga Repartida</button>
         </div>
         <div class="table-responsive">
@@ -200,7 +203,7 @@
       <!-- Cargas Puntuales -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">↓ Cargas Puntuales sobre Barras</h2>
+          <h2 class="card-title"><span class="emoji-icon">↓ </span>Cargas Puntuales sobre Barras</h2>
           <button id="btn-agregar-carga-puntual" class="btn-sm">+ Carga Puntual</button>
         </div>
         <div class="table-responsive">
@@ -327,14 +330,14 @@
     <!-- Pestaña 5: DIAGRAMAS (Hito 4) -->
     <section id="tab-diagramas" class="tab-content">
       <div class="card" style="padding: 0.75rem;">
-        <!-- Selector de diagrama -->
+        <!-- Fila propia de botones de diagrama con scroll horizontal -->
         <div class="selector-diagrama-bar">
-          <button class="diag-btn active" data-diag="modelo">🏗️ Modelo</button>
-          <button class="diag-btn" data-diag="def">〰️ Deformada</button>
-          <button class="diag-btn" data-diag="DMF">▰ DMF (Momento)</button>
-          <button class="diag-btn" data-diag="DFC">▰ DFC (Cortante)</button>
-          <button class="diag-btn" data-diag="DFN">▰ DFN (Axial)</button>
-          <button class="diag-btn" data-diag="reacciones">⚓ Reacciones</button>
+          <button class="diag-btn active" data-diag="modelo"><span class="emoji-icon">🏗️ </span>Modelo</button>
+          <button class="diag-btn" data-diag="def"><span class="emoji-icon">〰️ </span>Deformada</button>
+          <button class="diag-btn" data-diag="DMF"><span class="emoji-icon">▰ </span>DMF (Momento)</button>
+          <button class="diag-btn" data-diag="DFC"><span class="emoji-icon">▰ </span>DFC (Cortante)</button>
+          <button class="diag-btn" data-diag="DFN"><span class="emoji-icon">▰ </span>DFN (Axial)</button>
+          <button class="diag-btn" data-diag="reacciones"><span class="emoji-icon">⚓ </span>Reacciones</button>
         </div>
 
         <!-- Contenedor del diagrama con soporte zoom con dos dedos -->
@@ -345,13 +348,34 @@
             <button id="btn-zoom-reset" title="Restablecer">↺</button>
           </div>
           <svg id="diagrama-svg" class="diagrama-svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet"></svg>
-          <div class="diagrama-info-badge" id="diagrama-info">Zoom: dos dedos / rueda de ratón</div>
+        </div>
+
+        <!-- Fila DEBAJO del gráfico: información e interruptores -->
+        <div class="diag-bottom-bar">
+          <div class="diagrama-info-badge" id="diagrama-info">Modelo geométrico y cargas aplicadas</div>
+          <div class="diag-toggles-bar">
+            <label class="toggle-control" title="Mostrar u ocultar valores y etiquetas numéricas en todos los diagramas">
+              <input type="checkbox" id="toggle-diag-valores" checked>
+              <span><span class="emoji-icon">🏷️ </span>Valores</span>
+            </label>
+            <label class="toggle-control" title="Mostrar u ocultar cargas aplicadas en todos los diagramas">
+              <input type="checkbox" id="toggle-diag-cargas" checked>
+              <span><span class="emoji-icon">⚡ </span>Cargas</span>
+            </label>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- Sección de diagramas exclusiva para impresión PDF (6 diagramas, 2 por página) -->
+    <section id="print-diagramas-grid" class="print-diagramas-grid"></section>
+
     <!-- Pestaña 6: PASOS DEL MÉTODO (1–14) (Hito 3) -->
     <section id="tab-pasos" class="tab-content">
+      <div id="aviso-figuras" class="aviso-figuras" style="display: none;">
+        <span class="spinner-inline"></span>
+        <span>Generando figuras del método (numeración, configuraciones deformadas y fijación)...</span>
+      </div>
       <div class="pasos-container" id="pasos-contenedor">
         <p style="color: var(--text-muted);">Calcula el modelo para generar los 14 pasos con las matrices del curso.</p>
       </div>

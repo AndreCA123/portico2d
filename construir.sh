@@ -15,6 +15,7 @@ cp -v "$P2D_DIR/portico2d/modelo.py" "$DIR/py/portico2d/"
 cp -v "$P2D_DIR/portico2d/solver.py" "$DIR/py/portico2d/"
 cp -v "$P2D_DIR/portico2d/informe.py" "$DIR/py/portico2d/"
 cp -v "$P2D_DIR/portico2d/dibujo.py" "$DIR/py/portico2d/"
+cp -v "$P2D_DIR/portico2d/figuras.py" "$DIR/py/portico2d/"
 
 echo "==> Copiando ejemplos a web/ejemplos/..."
 mkdir -p "$DIR/ejemplos"

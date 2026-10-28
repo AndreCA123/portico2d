@@ -88,11 +88,36 @@ def _mat_pre(Mx, dec, filas, cols):
     return Bloque(lineas)
 
 
+def _mat_katex(Mx, dec, filas, cols):
+    """Matriz en LaTeX (para KaTeX en la versión web): corchetes reales, filas y columnas rotuladas."""
+    nr, nc = Mx.shape
+    txt = [[_num(v, dec).replace("−", "-") for v in fila_] for fila_ in Mx]
+    cuerpo = r" \\ ".join(" & ".join(f) for f in txt)
+    m = r"\left[\begin{array}{" + "r" * nc + "}" + cuerpo + r"\end{array}\right]"
+    if filas or cols:
+        lab = r"\begin{array}{r}" + r" \\ ".join(
+            r"\scriptstyle\mathrm{" + (filas[i] if filas else "") + "}" for i in range(nr)) + r"\end{array}"
+        if cols:
+            celdas = []
+            for j in range(nc):
+                ancho = max((txt[i][j] for i in range(nr)), key=len)
+                extra = r"\hphantom{" + cols[j] + "}" if len(cols[j]) > len(ancho) else ""
+                celdas.append(r"\hphantom{" + ancho + "}" + extra + r"\mathllap{\scriptstyle\mathrm{" + cols[j] + "}}")
+            cab = (r"\hphantom{[}" + (r"\kern0.14em " if nr > 1 else "") +
+                   r"\begin{array}{" + "r" * nc + "}" + " & ".join(celdas) + r"\end{array}")
+        else:
+            cab = ""
+        m = r"\begin{array}{rl} & " + cab + r" \\ " + lab + " & " + m + r" \end{array}"
+    return '<span class="katex-math">' + _html.escape(m, quote=False) + "</span>"
+
+
 def mat(Mx, dec=2, filas=None, cols=None):
     """Matriz con corchetes (barras rojas) compatible con QTextDocument."""
     Mx = np.atleast_2d(np.asarray(Mx, dtype=float))
     if Mx.shape[0] == 1 and (filas is None or len(filas) > 1):
         Mx = Mx.T
+    if _MODO.get("katex"):
+        return _mat_katex(Mx, dec, filas, cols)
     if _MODO["pre"]:
         return _mat_pre(Mx, dec, filas, cols)
     nr, nc = Mx.shape
@@ -111,6 +136,8 @@ def mat(Mx, dec=2, filas=None, cols=None):
 
 
 def fila(*partes):
+    if _MODO.get("katex"):
+        return '<div class="mrow">' + "".join(f'<div class="mi">{p}</div>' for p in partes) + "</div>"
     if _MODO["pre"]:
         return str(combinar([p if isinstance(p, Bloque) else Bloque.texto(p) for p in partes], sep="  "))
     celdas = "".join(f'<td valign="middle" nowrap>{p}</td>' for p in partes)
@@ -122,15 +149,18 @@ def paso(n, titulo):
 
 
 def html_pasos(res: Resultado, imagen_modelo: str | None = None, pdf: bool = False,
-               figuras: dict | None = None) -> str:
-    """figuras: {'numeracion': url, 'configuraciones': [url, ...], 'fijacion': url} (ver figuras.py)."""
+               figuras: dict | None = None, katex: bool = False) -> str:
+    """figuras: {'numeracion': url, 'configuraciones': [url, ...], 'fijacion': url} (ver figuras.py).
+    katex=True (versión web): las matrices salen como <span class="katex-math">LaTeX</span>."""
     _MODO["pre"] = True
+    _MODO["katex"] = bool(katex)
     _MODO["pt"] = 7.6 if pdf else 10
     _MODO["figs"] = figuras or {}
     try:
         return _html_pasos(res, imagen_modelo, pdf)
     finally:
         _MODO["pre"] = False
+        _MODO["katex"] = False
 
 
 def _html_pasos(res, imagen_modelo, pdf):
@@ -163,7 +193,11 @@ def _html_pasos(res, imagen_modelo, pdf):
                + (f"<td>{ext}</td>" if hay_rot else "")
                + (f"<td>{rb.bi:g}</td><td>{rb.bj:g}</td><td>{rb.Lf:.4g}</td>" if hay_br else "") + "</tr>")
     t2 += "</table>"
-    h.append(fila(t, "&nbsp;&nbsp;", t2))
+    if _MODO.get("katex"):
+        h.append('<div class="table-responsive">' + t + '</div>')
+        h.append('<div class="table-responsive" style="margin-top: 10px;">' + t2 + '</div>')
+    else:
+        h.append(fila(t, "&nbsp;&nbsp;", t2))
     h.append(paso(3, "Sistemas de referencia locales"))
     h.append("<p>Reglas: (1) el eje x local es paralelo al elemento; (2) su sentido + va del nudo de "
              "<b>menor</b> número al de <b>mayor</b> número (i &lt; j); (3) el eje z local tiene el mismo "
